@@ -1626,16 +1626,23 @@ function renderBoard(){
 }
 
 function startGuessMode(){ 
+    console.log('startGuessMode called! guessMode before:', guessMode);
     guessMode=true; 
+    console.log('guessMode set to true');
     // Update the secret display to show guess mode message
     const secretDisplay = document.getElementById('secretDisplay');
+    console.log('secretDisplay element:', secretDisplay);
     if (secretDisplay) {
         secretDisplay.textContent = '👆 Click a person to make your guess!';
         secretDisplay.style.background = 'linear-gradient(135deg, #fbbf24 0%, #f59e0b 100%)';
         secretDisplay.style.color = '#78350f';
         secretDisplay.style.borderColor = 'rgba(251, 191, 36, 0.5)';
         secretDisplay.style.animation = 'pulse 2s ease-in-out infinite';
+        console.log('Secret display updated successfully');
+    } else {
+        console.error('SECRET DISPLAY ELEMENT NOT FOUND!');
     }
+    console.log('startGuessMode completed');
 }
 
 function checkGuess(name){ 
