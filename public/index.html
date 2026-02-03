@@ -2042,11 +2042,24 @@ function checkIfBothSecretsPicked() {
 function handleRemoteGuess(guesserNum, guessIndex) {
     const opponentSecret = guesserNum === 1 ? secret2 : secret1;
     
-    if (guessIndex === opponentSecret) {
-        showWinner(guesserNum);
+    // Find the index of the opponent's secret in the gameRoster
+    const secretIndex = gameRoster.findIndex(p => p.id === opponentSecret.id);
+    
+    let winner;
+    if (guessIndex === secretIndex) {
+        // Correct guess!
+        winner = guesserNum;
     } else {
-        const actualWinner = guesserNum === 1 ? 2 : 1;
-        showWinner(actualWinner);
+        // Wrong guess - opponent wins
+        winner = guesserNum === 1 ? 2 : 1;
+    }
+    
+    // Only the guesser emits the win event (to avoid duplicate emissions)
+    if (socketPlayerNumber === guesserNum) {
+        showWinner(winner);
+    } else {
+        // The other player just shows the win screen locally
+        win(winner);
     }
 }
 
