@@ -76,14 +76,14 @@ io.on('connection', (socket) => {
 
     // Start the game (from roster screen)
     socket.on('start-game', (data) => {
-        const { roomCode, gameRoster } = data;
-        socket.to(roomCode).emit('game-started', { gameRoster });
+        const { roomCode } = data;
+        socket.to(roomCode).emit('game-started');
     });
 
     // Player picks their secret person
     socket.on('pick-secret', (data) => {
-        const { roomCode, playerNumber, secretIndex, secretCard } = data;
-        socket.to(roomCode).emit('secret-picked', { playerNumber, secretIndex, secretCard });
+        const { roomCode, playerNumber, secretIndex } = data;
+        socket.to(roomCode).emit('secret-picked', { playerNumber, secretIndex });
     });
 
     // Sync eliminated cards
@@ -98,16 +98,18 @@ io.on('connection', (socket) => {
         socket.to(roomCode).emit('turn-ended');
     });
 
-    // Make a guess
+    // Make a guess - FIXED: broadcast to BOTH players
     socket.on('make-guess', (data) => {
         const { roomCode, playerNumber, guessIndex } = data;
-        socket.to(roomCode).emit('guess-made', { playerNumber, guessIndex });
+        console.log(`Guess made in room ${roomCode} by player ${playerNumber}`);
+        io.to(roomCode).emit('guess-made', { playerNumber, guessIndex });
     });
 
-    // Win announcement
-    socket.on('player-won', (data) => {
+    // Win announcement - FIXED: listen for 'game-won' and broadcast to BOTH players
+    socket.on('game-won', (data) => {
         const { roomCode, winner } = data;
-        socket.to(roomCode).emit('game-won', { winner });
+        console.log(`Game won in room ${roomCode} - Player ${winner} wins! Broadcasting to BOTH players`);
+        io.to(roomCode).emit('game-won', { winner });
     });
 
     // Reset game
