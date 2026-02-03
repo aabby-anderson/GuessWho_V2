@@ -1918,15 +1918,28 @@ function initSocketIO() {
     });
     
     socket.on('player-joined', () => {
-        // Update the room code display for Player 1
-        const statusText = document.getElementById('roomStatusText');
-        if (statusText) {
-            statusText.textContent = '✅ Player 2 joined! You can start the game now.';
-            statusText.style.color = '#10b981';
+        // Update banner status
+        const statusDiv = document.getElementById('multiplayerStatus');
+        if (statusDiv) {
+            statusDiv.innerHTML = '✅ Player 2 joined! Click "Start Game" below.';
         }
         
-        // Also show an alert
-        alert('✅ Player 2 has joined!\n\nYou can now:\n1. Select people (click them)\n2. Click "Start Game (Same Phone)"');
+        // Update instructions
+        const instructionsDiv = document.getElementById('multiplayerInstructions');
+        if (instructionsDiv) {
+            instructionsDiv.innerHTML = `
+                <div style="font-weight:700;font-size:16px;margin-bottom:8px;color:#059669;">✅ Player 2 Joined!</div>
+                <div style="font-size:14px;line-height:1.6;color:#065f46;">
+                    Now you can select people and start the game.<br>
+                    <strong>Click "Start Game" button below when ready.</strong>
+                </div>
+            `;
+            instructionsDiv.style.background = '#d1fae5';
+            instructionsDiv.style.borderColor = '#059669';
+        }
+        
+        // Show the Start Game button (hide "Same Phone" button)
+        showMultiplayerStartButton();
     });
     
     socket.on('roster-synced', (syncedRoster) => {
@@ -1941,15 +1954,15 @@ function initSocketIO() {
         renderRoster();
     });
     
-    socket.on('game-started', () => {
+    socket.on('game-started', (data) => {
         // Close waiting modal for Player 2
         const waitingModal = document.getElementById('socketWaitingModal');
         if (waitingModal) waitingModal.remove();
         
-        // Set up the game for Player 2
-        if (selectedForGame.length > 0) {
-            gameRoster = selectedForGame.map(i => ({...roster[i]}));
-        }
+        // Set up the game for Player 2 with the received game roster
+        gameRoster = data.gameRoster;
+        window.gameRoster = gameRoster;
+        
         eliminated = {1: new Set(), 2: new Set()};
         currentPicker = socketPlayerNumber;
         currentTurn = 1;
@@ -1967,9 +1980,9 @@ function initSocketIO() {
     
     socket.on('secret-picked', (data) => {
         if (data.playerNumber === 1) {
-            secret1 = data.secretIndex;
+            secret1 = data.secretCard;
         } else {
-            secret2 = data.secretIndex;
+            secret2 = data.secretCard;
         }
         checkIfBothSecretsPicked();
     });
@@ -2010,7 +2023,7 @@ function checkIfBothSecretsPicked() {
         waitingForNextPicker = false;
         document.getElementById('pickBox').classList.add('hidden');
         document.getElementById('gameBox').classList.remove('hidden');
-        renderGame();
+        renderBoard();
     }
 }
 
@@ -2039,6 +2052,7 @@ window.startGame = function() {
     }
     
     gameRoster = selectedForGame.map(i => ({...roster[i]}));
+    window.gameRoster = gameRoster;
     eliminated = {1: new Set(), 2: new Set()};
     currentPicker = isSocketMultiplayer ? socketPlayerNumber : 1;
     currentTurn = 1;
@@ -2047,9 +2061,11 @@ window.startGame = function() {
     selectedCard = null;
     guessMode = false;
     
-    // Hide the room code display for Player 1
-    const codeDisplay = document.getElementById('roomCodeDisplay');
-    if (codeDisplay) codeDisplay.remove();
+    // Hide multiplayer UI elements
+    const banner = document.getElementById('multiplayerBanner');
+    if (banner) banner.remove();
+    const instructions = document.getElementById('multiplayerInstructions');
+    if (instructions) instructions.remove();
     
     document.getElementById('rosterBox').classList.add('hidden');
     document.getElementById('pickBox').classList.remove('hidden');
@@ -2057,7 +2073,11 @@ window.startGame = function() {
     renderPicker();
     
     if (isSocketMultiplayer && socket && socketRoomCode) {
-        socket.emit('start-game', { roomCode: socketRoomCode });
+        // Send the actual game roster to Player 2
+        socket.emit('start-game', { 
+            roomCode: socketRoomCode,
+            gameRoster: gameRoster
+        });
     }
 };
 
@@ -2090,6 +2110,9 @@ if (originalConfirmPick) {
             return;
         }
         
+        // Find the index of the selected card in gameRoster
+        const secretIndex = gameRoster.findIndex(p => p.name === selectedCard.name && p.img === selectedCard.img);
+        
         if (currentPicker === 1) {
             secret1 = selectedCard;
         } else {
@@ -2100,25 +2123,24 @@ if (originalConfirmPick) {
             socket.emit('pick-secret', {
                 roomCode: socketRoomCode,
                 playerNumber: currentPicker,
-                secretIndex: selectedCard
+                secretIndex: secretIndex,
+                secretCard: selectedCard
             });
-        }
-        
-        if (!isSocketMultiplayer) {
+            
+            // For multiplayer, just wait for both picks
+            checkIfBothSecretsPicked();
+        } else {
             // Original local multiplayer logic
             if (currentPicker === 1) {
-                currentPicker = 2;
+                secret1 = selectedCard;
                 waitingForNextPicker = true;
-                selectedCard = null;
-                renderPick();
+                showPass('Pass to Player 2 to pick their character');
             } else {
-                waitingForNextPicker = false;
-                document.getElementById('pickBox').classList.add('hidden');
-                document.getElementById('gameBox').classList.remove('hidden');
-                renderGame();
+                secret2 = selectedCard;
+                pickBox.classList.add('hidden');
+                gameBox.classList.remove('hidden');
+                showPass('Pass to Player 1 to start the game');
             }
-        } else {
-            checkIfBothSecretsPicked();
         }
     };
 }
@@ -2178,6 +2200,36 @@ if (originalMakeGuess) {
 
 // Add Socket multiplayer button to the UI - REMOVED (already in HTML)
 
+function showMultiplayerStartButton() {
+    // Find the controls div in rosterBox
+    const controlsDiv = document.querySelector('#rosterBox > .controls');
+    if (controlsDiv) {
+        // Hide existing buttons
+        controlsDiv.innerHTML = '';
+        
+        // Add single Start Game button
+        const startBtn = document.createElement('button');
+        startBtn.className = 'guess';
+        startBtn.style.cssText = 'font-size:18px;padding:16px 32px;';
+        startBtn.textContent = '🎮 Start Game';
+        startBtn.onclick = () => {
+            if (window.selectedForGame.length < 2) {
+                alert('Please select at least 2 people first (click on them to make them green)');
+                return;
+            }
+            window.startGame();
+        };
+        
+        const leaveBtn = document.createElement('button');
+        leaveBtn.className = 'danger';
+        leaveBtn.textContent = 'Leave Room';
+        leaveBtn.onclick = cancelSocketRoom;
+        
+        controlsDiv.appendChild(startBtn);
+        controlsDiv.appendChild(leaveBtn);
+    }
+}
+
 function showSocketMultiplayerModal() {
     const modal = document.createElement('div');
     modal.className = 'pass-screen';
@@ -2219,22 +2271,34 @@ function createSocketRoom() {
             
             closeSocketModal();
             
-            // Show the room code in a non-blocking way
-            const codeDisplay = document.createElement('div');
-            codeDisplay.id = 'roomCodeDisplay';
-            codeDisplay.style.cssText = 'position:fixed;top:20px;left:50%;transform:translateX(-50%);background:rgba(255,255,255,0.98);border-radius:18px;padding:20px 32px;box-shadow:0 10px 30px rgba(0,0,0,0.3);z-index:1000;text-align:center;border:3px solid #667eea;';
-            codeDisplay.innerHTML = `
-                <div style="color:#6b7280;font-size:14px;margin-bottom:6px;">Share this code with Player 2:</div>
-                <div style="font-size:36px;font-weight:800;color:#667eea;letter-spacing:6px;margin:8px 0;">${socketRoomCode}</div>
-                <div id="roomStatusText" style="color:#f59e0b;font-size:13px;margin-top:8px;margin-bottom:12px;">⏳ Waiting for Player 2...</div>
-                <button onclick="cancelSocketRoom()" style="padding:8px 16px;background:#dc2626;color:white;border:none;border-radius:8px;cursor:pointer;font-size:12px;font-weight:600;">Leave Room</button>
+            // Show room info banner at top
+            const infoBanner = document.createElement('div');
+            infoBanner.id = 'multiplayerBanner';
+            infoBanner.style.cssText = 'background:linear-gradient(135deg, #667eea 0%, #764ba2 100%);color:white;padding:16px 24px;text-align:center;box-shadow:0 4px 12px rgba(0,0,0,0.2);position:relative;z-index:100;';
+            infoBanner.innerHTML = `
+                <div style="font-size:14px;margin-bottom:4px;">🌐 Multiplayer Room</div>
+                <div style="font-size:28px;font-weight:800;letter-spacing:4px;margin:8px 0;">${socketRoomCode}</div>
+                <div id="multiplayerStatus" style="font-size:13px;opacity:0.9;">⏳ Waiting for Player 2 to join...</div>
             `;
-            document.body.appendChild(codeDisplay);
             
-            // Show instruction alert
-            setTimeout(() => {
-                alert('Room created!\n\n1. Share code: ' + socketRoomCode + '\n2. Wait for Player 2 to join\n3. Select people (click them - green highlight)\n4. Click "Start Game (Same Phone)" when ready');
-            }, 300);
+            // Insert at the very top of mainApp
+            const mainApp = document.getElementById('mainApp');
+            mainApp.insertBefore(infoBanner, mainApp.firstChild);
+            
+            // Add instructions to roster box
+            const rosterBox = document.getElementById('rosterBox');
+            const instructionDiv = document.createElement('div');
+            instructionDiv.id = 'multiplayerInstructions';
+            instructionDiv.style.cssText = 'background:#ecfdf5;border:2px solid #10b981;border-radius:14px;padding:16px;margin-bottom:20px;color:#065f46;';
+            instructionDiv.innerHTML = `
+                <div style="font-weight:700;font-size:16px;margin-bottom:8px;">📋 Setup Instructions:</div>
+                <div style="font-size:14px;line-height:1.6;">
+                    1. Share the room code above with Player 2<br>
+                    2. Wait for Player 2 to join<br>
+                    3. Once joined, you'll see a "Start Game" button
+                </div>
+            `;
+            rosterBox.insertBefore(instructionDiv, rosterBox.firstChild);
         }
     });
 }
@@ -2287,11 +2351,24 @@ function cancelSocketRoom() {
     socketRoomCode = null;
     socketPlayerNumber = null;
     
-    const codeDisplay = document.getElementById('roomCodeDisplay');
-    if (codeDisplay) codeDisplay.remove();
+    // Remove multiplayer UI elements
+    const banner = document.getElementById('multiplayerBanner');
+    if (banner) banner.remove();
+    
+    const instructions = document.getElementById('multiplayerInstructions');
+    if (instructions) instructions.remove();
     
     const waitingModal = document.getElementById('socketWaitingModal');
     if (waitingModal) waitingModal.remove();
+    
+    // Restore original buttons
+    const controlsDiv = document.querySelector('#rosterBox > .controls');
+    if (controlsDiv) {
+        controlsDiv.innerHTML = `
+            <button onclick="beginSetup()">Start Game (Same Phone)</button>
+            <button class="guest" onclick="showSocketMultiplayerModal()" title="Play on two different devices using server">Play on Two Screens</button>
+        `;
+    }
     
     if (socket) {
         socket.disconnect();
