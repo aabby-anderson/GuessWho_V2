@@ -1,0 +1,2388 @@
+public/index.html 
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>Custom Guess Who – Two Player</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<style>
+body { font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); margin:0; padding:0; min-height:100vh; position:relative; overflow-x:hidden; }
+body::before { content: ''; position: absolute; top: -50%; right: -50%; width: 200%; height: 200%; background: radial-gradient(circle, rgba(255,255,255,0.1) 0%, transparent 70%); animation: rotate 30s linear infinite; }
+@keyframes rotate { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+h1,h2,h3 { text-align:center; margin:10px 0; position:relative; z-index:1; }
+h1 { color: white; font-weight: 800; font-size: 36px; text-shadow: 0 4px 8px rgba(0,0,0,0.2); letter-spacing: -0.5px; }
+h2 { color: white; font-weight: 700; font-size: 28px; text-shadow: 0 2px 4px rgba(0,0,0,0.15); }
+h3 { color: #1f2937; font-weight: 700; font-size: 20px; }
+.box { background:rgba(255,255,255,0.98); border-radius:24px; padding:24px; margin:16px auto; max-width:1000px; box-shadow:0 20px 60px rgba(0,0,0,.3), 0 0 0 1px rgba(255,255,255,0.5) inset; backdrop-filter:blur(20px); position:relative; z-index:1; }
+.auth-box { background:rgba(255,255,255,0.98); border-radius:28px; padding:48px; margin:60px auto; max-width:480px; box-shadow:0 30px 80px rgba(0,0,0,.4), 0 0 0 1px rgba(255,255,255,0.6) inset; backdrop-filter:blur(20px); position:relative; z-index:1; }
+.auth-box h1 { color: #1f2937; margin-bottom: 12px; font-size: 32px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
+.controls { display:flex; flex-wrap:wrap; justify-content:center; gap:10px; margin-bottom:12px; }
+button { padding:14px 24px; border:none; border-radius:14px; cursor:pointer; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color:white; font-size:16px; font-weight:700; min-width:160px; transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); box-shadow: 0 6px 20px rgba(102, 126, 234, 0.4), 0 0 0 1px rgba(255,255,255,0.1) inset; position:relative; overflow:hidden; }
+button::before { content: ''; position: absolute; top: 50%; left: 50%; width: 0; height: 0; border-radius: 50%; background: rgba(255,255,255,0.2); transform: translate(-50%, -50%); transition: width 0.6s, height 0.6s; }
+button:hover::before { width: 300px; height: 300px; }
+button:hover { transform: translateY(-3px) scale(1.02); box-shadow: 0 10px 30px rgba(102, 126, 234, 0.6), 0 0 0 1px rgba(255,255,255,0.2) inset; }
+button:active { transform: translateY(-1px) scale(0.98); }
+input { padding:14px 18px; border:2px solid #e5e7eb; border-radius:14px; font-size:16px; transition: all 0.3s ease; background: rgba(255,255,255,0.9); }
+input:focus { outline: none; border-color: #667eea; box-shadow: 0 0 0 4px rgba(102, 126, 234, 0.1); background: white; }
+input.full-width { width: 100%; box-sizing: border-box; margin-bottom: 16px; }
+button.secondary{background: linear-gradient(135deg, #6b7280 0%, #4b5563 100%); box-shadow: 0 6px 20px rgba(107, 114, 128, 0.4), 0 0 0 1px rgba(255,255,255,0.1) inset;} 
+button.secondary:hover{box-shadow: 0 10px 30px rgba(107, 114, 128, 0.6), 0 0 0 1px rgba(255,255,255,0.2) inset;}
+button.guess{background: linear-gradient(135deg, #10b981 0%, #059669 100%); box-shadow: 0 6px 20px rgba(16, 185, 129, 0.4), 0 0 0 1px rgba(255,255,255,0.1) inset;} 
+button.guess:hover{box-shadow: 0 10px 30px rgba(16, 185, 129, 0.6), 0 0 0 1px rgba(255,255,255,0.2) inset;}
+button.danger{background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%); box-shadow: 0 6px 20px rgba(239, 68, 68, 0.4), 0 0 0 1px rgba(255,255,255,0.1) inset;}
+button.danger:hover{box-shadow: 0 10px 30px rgba(239, 68, 68, 0.6), 0 0 0 1px rgba(255,255,255,0.2) inset;}
+button.guest{background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%); box-shadow: 0 6px 20px rgba(139, 92, 246, 0.4), 0 0 0 1px rgba(255,255,255,0.1) inset;}
+button.guest:hover{box-shadow: 0 10px 30px rgba(139, 92, 246, 0.6), 0 0 0 1px rgba(255,255,255,0.2) inset;}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(110px,1fr));gap:14px;padding:4px;}
+.card{background:linear-gradient(135deg, #ffffff 0%, #f9fafb 100%);border-radius:18px;box-shadow:0 6px 16px rgba(0,0,0,.1);text-align:center;padding:10px;cursor:pointer;user-select:none;transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);border: 3px solid transparent;position:relative;overflow:hidden;}
+.card::before { content: ''; position: absolute; top: -50%; left: -50%; width: 200%; height: 200%; background: linear-gradient(45deg, transparent, rgba(255,255,255,0.3), transparent); transform: rotate(45deg); transition: all 0.6s; opacity: 0; }
+.card:hover::before { opacity: 1; top: -10%; left: -10%; }
+.card:hover{transform: translateY(-6px) scale(1.03); box-shadow:0 12px 28px rgba(0,0,0,.2);border-color: rgba(102, 126, 234, 0.3);}
+.card.eliminated{opacity:.35;transform: scale(0.92);filter: grayscale(0.8);} 
+.card.selected{border-color:#10b981; box-shadow:0 0 0 4px rgba(16, 185, 129, 0.3), 0 8px 20px rgba(16, 185, 129, 0.2);background:linear-gradient(135deg, #ecfdf5 0%, #d1fae5 100%);}
+.card img{width:100%;height:110px;object-fit:cover;border-radius:14px;transition: transform 0.3s ease;} 
+.card:hover img{transform: scale(1.05);}
+.name{margin-top:8px;font-size:14px;font-weight:700;color:#1f2937;letter-spacing:-0.2px;}
+.delete-btn{position:absolute;top:50%;left:50%;transform:translate(-50%, -50%);width:54px;height:54px;border-radius:50%;background:linear-gradient(135deg, #ef4444 0%, #dc2626 100%);color:white;border:4px solid white;font-size:30px;font-weight:bold;line-height:1;cursor:pointer;opacity:0;transition:all 0.3s cubic-bezier(0.4, 0, 0.2, 1);padding:0;box-shadow:0 8px 20px rgba(239, 68, 68, 0.7);z-index:10;}
+.delete-btn:hover{transform:translate(-50%, -50%) scale(1.1);box-shadow:0 12px 28px rgba(239, 68, 68, 0.8);}
+.card:hover + .delete-btn, .delete-btn:hover{opacity:1;}
+.hidden{display:none;} 
+.secret-display{text-align:center;font-weight:700;margin-bottom:12px;font-size:20px;color:#10b981;text-shadow: 0 2px 4px rgba(16, 185, 129, 0.2);padding:12px;background:rgba(16, 185, 129, 0.1);border-radius:12px;border:2px solid rgba(16, 185, 129, 0.3);}
+.pass-screen,.win-screen{position:fixed;inset:0;background:linear-gradient(135deg, #1e293b 0%, #0f172a 100%);color:white;display:none;align-items:center;justify-content:center;flex-direction:column;z-index:999;text-align:center;}
+.pass-screen::before,.win-screen::before { content: ''; position: absolute; top: 0; left: 0; right: 0; bottom: 0; background: radial-gradient(circle at 50% 50%, rgba(102, 126, 234, 0.1) 0%, transparent 50%); animation: pulse 3s ease-in-out infinite; }
+@keyframes pulse { 0%, 100% { opacity: 0.5; } 50% { opacity: 1; } }
+.pass-screen h1,.win-screen h1{font-size:36px;margin-bottom:20px;font-weight:800;position:relative;z-index:1;text-shadow: 0 4px 8px rgba(0,0,0,0.3);} 
+.pass-screen button,.win-screen button{background: linear-gradient(135deg, #10b981 0%, #059669 100%);font-size:18px;box-shadow: 0 6px 20px rgba(16, 185, 129, 0.5), 0 0 0 1px rgba(255,255,255,0.1) inset;position:relative;z-index:1;}
+.confetti{position:fixed;width:12px;height:12px;animation:fall 3s linear forwards;z-index:1000;border-radius:50%;}
+.tab-buttons{display:flex;gap:6px;margin-bottom:28px;border-radius:14px;overflow:hidden;background:rgba(243, 244, 246, 0.8);padding:6px;backdrop-filter:blur(10px);}
+.tab-buttons button{flex:1;border-radius:10px;margin:0;min-width:0;background:transparent;color:#6b7280;box-shadow:none;font-weight:700;font-size:15px;}
+.tab-buttons button.active{background:linear-gradient(135deg, #667eea 0%, #764ba2 100%);color:white;box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4), 0 0 0 1px rgba(255,255,255,0.2) inset;}
+.tab-buttons button:hover{transform:none;}
+.user-info{text-align:center;padding:16px 24px;background:rgba(255,255,255,0.95);border-radius:18px;margin-bottom:20px;box-shadow:0 6px 16px rgba(0,0,0,0.15);backdrop-filter:blur(20px);font-weight:600;color:#1f2937;font-size:15px;border:1px solid rgba(255,255,255,0.5);}
+@keyframes fall{0%{transform:translateY(0) rotate(0deg);}100%{transform:translateY(100vh) rotate(720deg);}}
+@media(min-width:700px){.grid{grid-template-columns:repeat(auto-fill,minmax(140px,1fr));}.card img{height:140px;}}
+</style>
+</head>
+<body>
+<div id="authScreen" class="auth-box">
+  <h1>🎮 Custom Guess Who</h1>
+  <p style="text-align:center;color:#6b7280;margin-bottom:28px;font-size:15px;">Create an account to save your rosters permanently, or play as a guest</p>
+  
+  <div class="tab-buttons">
+    <button id="loginTab" class="active" onclick="showTab('login')">Login</button>
+    <button id="signupTab" onclick="showTab('signup')">Sign Up</button>
+  </div>
+  
+  <div id="loginForm">
+    <div id="loginMessage" style="display:none;background:#fef2f2;border:1px solid #fecaca;color:#991b1b;padding:12px;border-radius:12px;margin-bottom:14px;font-size:14px;"></div>
+    <input id="loginEmail" type="email" class="full-width" placeholder="Email" />
+    <input id="loginPassword" type="password" class="full-width" placeholder="Password" />
+    <button onclick="handleLogin()" style="width:100%;margin-bottom:14px;">Login</button>
+  </div>
+  
+  <div id="signupForm" class="hidden">
+    <div id="signupMessage" style="display:none;background:#fef2f2;border:1px solid #fecaca;color:#991b1b;padding:12px;border-radius:12px;margin-bottom:14px;font-size:14px;"></div>
+    <input id="signupEmail" type="email" class="full-width" placeholder="Email" />
+    <input id="signupPassword" type="password" class="full-width" placeholder="Password" />
+    <input id="signupPasswordConfirm" type="password" class="full-width" placeholder="Confirm Password" />
+    <button onclick="handleSignup()" style="width:100%;margin-bottom:14px;">Create Account</button>
+  </div>
+  
+  <div style="text-align:center;margin-top:20px;padding-top:20px;border-top:2px solid #f3f4f6;">
+    <p style="color:#6b7280;font-size:14px;margin-bottom:10px;">Don't want to create an account?</p>
+    <button onclick="continueAsGuest()" class="guest" style="width:100%;">Continue as Guest</button>
+    <p style="color:#9ca3af;font-size:13px;margin-top:10px;">Guest mode: Your data won't be saved</p>
+  </div>
+</div>
+
+<div id="mainApp" class="hidden">
+
+<h1>🎮 Custom Guess Who – Two Player</h1>
+
+<div id="rosterBox" class="box">
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+    <h3 style="margin:0;">Custom Roster</h3>
+    <button onclick="logout()" class="secondary" style="min-width:100px;font-size:14px;padding:10px 16px;">Logout</button>
+  </div>
+  <p style="text-align:center;font-size:15px;color:#6b7280;margin-bottom:20px;">Add people once — they stay for every game. <strong style="color:#667eea;">Click people to select them</strong> (green highlight) for the game.</p>
+  <div class="controls">
+    <input id="nameInput" placeholder="Name" />
+    <input id="imgInput" type="file" accept="image/*" style="display:none;" />
+    <label for="imgInput" style="padding:10px 14px;border:2px dashed #667eea;border-radius:12px;cursor:pointer;background:rgba(102,126,234,0.1);color:#667eea;font-weight:600;font-size:14px;display:inline-block;transition:all 0.3s ease;">
+      📁 Choose Image
+    </label>
+    <div id="dropZone" style="padding:20px;border:3px dashed #667eea;border-radius:12px;text-align:center;color:#667eea;font-weight:600;cursor:pointer;background:rgba(102,126,234,0.05);transition:all 0.3s ease;min-width:200px;">
+      🖼️ Or Drag & Drop Image Here
+    </div>
+    <button onclick="addPerson()">Add Person</button>
+  </div>
+  <div id="rosterGrid" class="grid"></div>
+  
+  <div style="margin-top:20px;border-top:2px solid #e5e7eb;padding-top:20px;">
+    <h3 style="margin-bottom:10px;">Saved Rosters</h3>
+    <div class="controls">
+      <input id="presetNameInput" placeholder="Roster Name" style="flex:1;max-width:300px;" />
+      <button onclick="savePreset().catch(e => console.error(e))" class="secondary">Save Current Selection</button>
+    </div>
+    <div id="savedRosterDisplay" style="margin-top:15px;"></div>
+  </div>
+  
+  <div class="controls">
+  <button onclick="beginSetup()">Start Game (Same Phone)</button>
+  <button class="guest" onclick="openOnlineModal()" title="Play on two different devices using WebRTC">Play on Two Screens</button>
+</div>
+</div>
+
+<div id="pickBox" class="box hidden">
+  <h3 id="pickTitle"></h3>
+  <div id="pickGrid" class="grid"></div>
+  <div class="controls"><button onclick="confirmPick()">Confirm Selection</button></div>
+</div>
+
+<div id="gameBox" class="box hidden">
+  <h2 id="turnTitle" style="background:linear-gradient(135deg, #667eea 0%, #764ba2 100%);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;padding:12px;border-radius:14px;margin-bottom:16px;text-shadow:none;"></h2>
+  <div id="secretDisplay" class="secret-display"></div>
+  <div class="controls">
+    <button class="guess" onclick="startGuessMode()">Make a Guess</button>
+    <button class="secondary" onclick="resetEliminations()">Reset Eliminations</button>
+    <button class="secondary" onclick="endTurn()">Pass Phone</button>
+  </div>
+  <div id="boardGrid" class="grid"></div>
+</div>
+
+<div id="passScreen" class="pass-screen"><h1 id="passText"></h1><button onclick="continueAfterPass()">I'm Ready</button></div>
+<div id="wrongScreen" class="pass-screen"><h1>❌ Wrong Guess!</h1><button onclick="continueAfterWrong()">Continue</button></div>
+<div id="deleteConfirm" class="pass-screen"><h1 id="deleteText"></h1><div style="display:flex;gap:12px;"><button onclick="confirmDelete()" style="background:#dc2626;">Yes, Delete</button><button onclick="cancelDelete()" style="background:#6b7280;">Cancel</button></div></div>
+<div id="deletePresetConfirm" class="pass-screen"><h1 id="deletePresetText"></h1><div style="display:flex;gap:12px;"><button onclick="confirmDeletePreset()" style="background:#dc2626;">Yes, Delete</button><button onclick="cancelDeletePreset()" style="background:#6b7280;">Cancel</button></div></div>
+<div id="notEnoughScreen" class="pass-screen"><h1>⚠️ Not Enough Players</h1><p style="font-size:18px;margin:10px 0;">Select at least 2 people by clicking on them (they will get a green outline)</p><button onclick="closeNotEnough()">OK</button></div>
+<div id="winScreen" class="win-screen"><h1 id="winText"></h1><button onclick="resetGame()">Play Again</button></div>
+
+
+
+<!-- Online (Two-Screen) Multiplayer Modal -->
+<div id="onlineModal" class="pass-screen" style="display:none; z-index:1200;">
+  <h1 style="margin-bottom:10px;">🌐 Two-Screen Mode</h1>
+  <p style="max-width:760px; padding:0 18px; font-size:15px; color:#cbd5e1; position:relative; z-index:1;">
+    Create a game on one device, then join with a <strong>6‑digit code</strong> on the other device.
+  </p>
+
+  <div style="width:min(900px,92vw); background:rgba(255,255,255,0.06); border:1px solid rgba(255,255,255,0.12);
+              border-radius:18px; padding:16px; margin-top:16px; position:relative; z-index:1;">
+    <div style="display:flex; gap:12px; flex-wrap:wrap; align-items:center; justify-content:space-between;">
+      <!-- Server URL hidden (hardcoded) -->
+      <div style="display:flex; gap:10px; flex-wrap:wrap; align-items:flex-end; justify-content:flex-end;">
+        <button class="secondary" style="min-width:140px;" onclick="closeOnlineModal()">Close</button>
+        <button class="danger" style="min-width:140px;" onclick="disconnectOnline()">Disconnect</button>
+      </div>
+    </div>
+
+    <div class="tab-buttons" style="background:rgba(15,23,42,0.25); margin-top:14px;">
+      <button id="hostTab" class="active" onclick="showOnlineTab('host')">Host</button>
+      <button id="joinTab" onclick="showOnlineTab('join')">Join</button>
+    </div>
+
+    <!-- HOST -->
+    <div id="onlineHostPane">
+      <div style="display:flex; gap:10px; flex-wrap:wrap; align-items:center; margin-top:12px;">
+        <button class="guest" style="min-width:200px;" onclick="hostCreateGame()">Create Game</button>
+        <div style="flex:1; min-width:220px;">
+          <div style="font-size:12px; color:#cbd5e1; margin-bottom:6px;">Game Code</div>
+          <div id="hostGameCode" style="font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+               font-size:22px; letter-spacing:2px; background:rgba(15,23,42,0.35); border:1px solid rgba(255,255,255,0.18);
+               border-radius:14px; padding:10px 12px; color:#a7f3d0;">
+            — — — — — —
+          </div>
+        </div>
+      </div>
+
+      <div style="margin-top:10px; font-size:13px; color:#cbd5e1;">
+        1) Click <strong>Create Game</strong><br>
+        2) Share the code with the other player<br>
+        3) Wait for “Joiner connected”<br>
+        4) Select people (green outline) and click <strong>Start Online Game</strong>
+      </div>
+
+      <div style="margin-top:14px; display:flex; gap:10px; flex-wrap:wrap; justify-content:center;">
+        <button class="guess" style="min-width:260px;" onclick="startOnlineGameAsHost()">Start Online Game</button>
+      </div>
+
+      <div style="margin-top:12px; text-align:center;">
+        <div id="hostStatus" style="color:#cbd5e1;">Status: Not connected</div>
+      </div>
+    </div>
+
+    <!-- JOIN -->
+    <div id="onlineJoinPane" class="hidden">
+      <div style="display:flex; gap:10px; flex-wrap:wrap; align-items:center; margin-top:12px;">
+        <input id="joinCodeInput" type="text" inputmode="numeric" maxlength="6" placeholder="Enter 6-digit code"
+               style="flex:1; min-width:220px; border-radius:14px; padding:10px 12px; border:1px solid rgba(255,255,255,0.18);
+                      background:rgba(15,23,42,0.35); color:white; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+                      font-size:18px; letter-spacing:2px;" />
+        <button class="guest" style="min-width:200px;" onclick="joinGame()">Join Game</button>
+      </div>
+
+      <div style="margin-top:10px; font-size:13px; color:#cbd5e1;">
+        1) Paste the server URL if needed<br>
+        2) Enter the code from the host<br>
+        3) Click <strong>Join Game</strong> and wait for the pick screen
+      </div>
+
+      <div style="margin-top:12px; text-align:center;">
+        <div id="joinStatus" style="color:#cbd5e1;">Status: Not connected</div>
+      </div>
+    </div>
+
+    <div style="margin-top:14px; display:flex; justify-content:space-between; align-items:center; gap:10px; flex-wrap:wrap;">
+      <div id="onlineConnStatus" style="color:#a7f3d0; font-weight:700;">Status: Not connected</div>
+      <div style="font-size:12px; color:#94a3b8;">
+        Tip: both devices should be on the same Wi‑Fi for easiest testing.
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Online waiting overlay -->
+
+<div id="onlineWait" class="pass-screen" style="display:none; z-index:1100;">
+  <h1 id="onlineWaitText">Waiting…</h1>
+  <p id="onlineWaitSub" style="color:#cbd5e1; font-size:16px; max-width:700px; padding:0 18px;"></p>
+  <button id="onlineWaitBtn" class="guest" style="display:none;" onclick="hideOnlineWait()">OK</button>
+</div>
+
+</div>
+
+<script>
+// Authentication state
+let currentUser = null;
+let isGuest = false;
+
+// Prefer IndexedDB (much larger quota than localStorage). Fallback to localStorage if unavailable.
+let useLocalStorage = false;
+let idbDb = null;
+
+// ---------- IndexedDB KV Store ----------
+function openIdb() {
+  return new Promise((resolve, reject) => {
+    if (!("indexedDB" in window)) return reject(new Error("indexedDB not supported"));
+    const req = indexedDB.open("guesswho_kv_v1", 1);
+    req.onupgradeneeded = () => {
+      const db = req.result;
+      if (!db.objectStoreNames.contains("kv")) {
+        db.createObjectStore("kv", { keyPath: "key" });
+      }
+    };
+    req.onsuccess = () => resolve(req.result);
+    req.onerror = () => reject(req.error || new Error("Failed to open IndexedDB"));
+  });
+}
+
+async function checkStorageAvailability() {
+  try {
+    idbDb = await openIdb();
+    useLocalStorage = false;
+  } catch (err) {
+    console.log("IndexedDB not available, using localStorage instead:", err?.message || err);
+    useLocalStorage = true;
+  }
+}
+
+// Initialize storage check
+(async function() {
+  await checkStorageAvailability();
+})();
+
+function idbGet(key) {
+  return new Promise((resolve, reject) => {
+    const tx = idbDb.transaction("kv", "readonly");
+    const store = tx.objectStore("kv");
+    const req = store.get(key);
+    req.onsuccess = () => resolve(req.result ? req.result.value : null);
+    req.onerror = () => reject(req.error || new Error("IDB get failed"));
+  });
+}
+function idbSet(key, value) {
+  return new Promise((resolve, reject) => {
+    const tx = idbDb.transaction("kv", "readwrite");
+    const store = tx.objectStore("kv");
+    const req = store.put({ key, value });
+    req.onsuccess = () => resolve(true);
+    req.onerror = () => reject(req.error || new Error("IDB set failed"));
+  });
+}
+function idbDelete(key) {
+  return new Promise((resolve, reject) => {
+    const tx = idbDb.transaction("kv", "readwrite");
+    const store = tx.objectStore("kv");
+    const req = store.delete(key);
+    req.onsuccess = () => resolve(true);
+    req.onerror = () => reject(req.error || new Error("IDB delete failed"));
+  });
+}
+
+// ---------- Safer JSON + IDs ----------
+function safeJsonParse(str, fallback) {
+  try { return JSON.parse(str); } catch { return fallback; }
+}
+function makeId() {
+  if (window.crypto?.randomUUID) return crypto.randomUUID();
+  return `id_${Date.now()}_${Math.random().toString(16).slice(2)}`;
+}
+
+// ---------- Image Compression ----------
+async function compressImageFile(file, maxDim = 256, quality = 0.72) {
+  let bitmap;
+  try {
+    bitmap = await createImageBitmap(file);
+  } catch {
+    const dataUrl = await new Promise((resolve, reject) => {
+      const r = new FileReader();
+      r.onload = () => resolve(r.result);
+      r.onerror = reject;
+      r.readAsDataURL(file);
+    });
+    const img = await new Promise((resolve, reject) => {
+      const im = new Image();
+      im.onload = () => resolve(im);
+      im.onerror = reject;
+      im.src = dataUrl;
+    });
+    bitmap = img;
+  }
+
+  const w = bitmap.width;
+  const h = bitmap.height;
+  const scale = Math.min(1, maxDim / Math.max(w, h));
+  const outW = Math.max(1, Math.round(w * scale));
+  const outH = Math.max(1, Math.round(h * scale));
+
+  const canvas = document.createElement("canvas");
+  canvas.width = outW;
+  canvas.height = outH;
+  const ctx = canvas.getContext("2d");
+  ctx.drawImage(bitmap, 0, 0, outW, outH);
+
+  let mime = "image/webp";
+  let dataUrl = canvas.toDataURL(mime, quality);
+  if (!dataUrl.startsWith("data:image/webp")) {
+    mime = "image/jpeg";
+    dataUrl = canvas.toDataURL(mime, quality);
+  }
+  return dataUrl;
+}
+
+// Storage wrapper functions (used throughout the app)
+async function storageGet(key) {
+  if (useLocalStorage) {
+    const value = localStorage.getItem(key);
+    if (value === null) throw new Error("Key not found");
+    return { key, value };
+  } else {
+    const value = await idbGet(key);
+    if (value === null) throw new Error("Key not found");
+    return { key, value };
+  }
+}
+
+async function storageSet(key, value) {
+  if (useLocalStorage) {
+    localStorage.setItem(key, value);
+    return { key, value };
+  } else {
+    await idbSet(key, value);
+    return { key, value };
+  }
+}
+
+async function storageDelete(key) {
+  if (useLocalStorage) {
+    localStorage.removeItem(key);
+    return { key, deleted: true };
+  } else {
+    await idbDelete(key);
+    return { key, deleted: true };
+  }
+}
+
+// Drag and drop functionality
+const dropZone = document.getElementById('dropZone');
+const imgInput = document.getElementById('imgInput');
+
+dropZone.addEventListener('dragover', (e) => {
+    e.preventDefault();
+    dropZone.style.borderColor = '#764ba2';
+    dropZone.style.background = 'rgba(102,126,234,0.15)';
+    dropZone.style.transform = 'scale(1.02)';
+});
+
+dropZone.addEventListener('dragleave', (e) => {
+    e.preventDefault();
+    dropZone.style.borderColor = '#667eea';
+    dropZone.style.background = 'rgba(102,126,234,0.05)';
+    dropZone.style.transform = 'scale(1)';
+});
+
+dropZone.addEventListener('drop', (e) => {
+    e.preventDefault();
+    dropZone.style.borderColor = '#667eea';
+    dropZone.style.background = 'rgba(102,126,234,0.05)';
+    dropZone.style.transform = 'scale(1)';
+    
+    const files = e.dataTransfer.files;
+    if (files.length > 0 && files[0].type.startsWith('image/')) {
+        imgInput.files = files;
+        dropZone.textContent = '✅ Image Selected: ' + files[0].name;
+        dropZone.style.color = '#10b981';
+    }
+});
+
+dropZone.addEventListener('click', () => {
+    imgInput.click();
+});
+
+imgInput.addEventListener('change', () => {
+    if (imgInput.files.length > 0) {
+        dropZone.textContent = '✅ Image Selected: ' + imgInput.files[0].name;
+        dropZone.style.color = '#10b981';
+    }
+});
+
+// Show/hide auth tabs
+function showTab(tab) {
+    // Clear any messages
+    document.getElementById('loginMessage').style.display = 'none';
+    document.getElementById('signupMessage').style.display = 'none';
+    
+    if (tab === 'login') {
+        document.getElementById('loginTab').classList.add('active');
+        document.getElementById('signupTab').classList.remove('active');
+        document.getElementById('loginForm').classList.remove('hidden');
+        document.getElementById('signupForm').classList.add('hidden');
+    } else {
+        document.getElementById('signupTab').classList.add('active');
+        document.getElementById('loginTab').classList.remove('active');
+        document.getElementById('signupForm').classList.remove('hidden');
+        document.getElementById('loginForm').classList.add('hidden');
+    }
+}
+
+// Handle login
+async function handleLogin() {
+    const email = document.getElementById('loginEmail').value.trim();
+    const password = document.getElementById('loginPassword').value;
+    
+    // Clear any previous messages
+    document.getElementById('loginMessage').style.display = 'none';
+    
+    if (!email || !password) {
+        const loginMessage = document.getElementById('loginMessage');
+        loginMessage.textContent = 'Please enter both email and password';
+        loginMessage.style.display = 'block';
+        return;
+    }
+    
+    try {
+        // Check if user exists
+        const userKey = `user_${email}`;
+        let userData;
+        try {
+            userData = await storageGet(userKey);
+        } catch (error) {
+            userData = null;
+        }
+        
+        if (!userData) {
+            const loginMessage = document.getElementById('loginMessage');
+            loginMessage.textContent = 'Account not found. Please sign up first.';
+            loginMessage.style.display = 'block';
+            return;
+        }
+        
+        const user = JSON.parse(userData.value);
+        
+        if (user.password !== password) {
+            const loginMessage = document.getElementById('loginMessage');
+            loginMessage.textContent = 'Incorrect password. Please try again.';
+            loginMessage.style.display = 'block';
+            return;
+        }
+        
+        // Login successful
+        currentUser = email;
+        isGuest = false;
+        await loadUserData();
+        showMainApp();
+    } catch (error) {
+        console.error('Login error:', error);
+        const loginMessage = document.getElementById('loginMessage');
+        loginMessage.textContent = 'Login failed. Please try again.';
+        loginMessage.style.display = 'block';
+    }
+}
+
+// Handle signup
+async function handleSignup() {
+    const email = document.getElementById('signupEmail').value.trim();
+    const password = document.getElementById('signupPassword').value;
+    const confirmPassword = document.getElementById('signupPasswordConfirm').value;
+    
+    // Clear any previous messages
+    document.getElementById('signupMessage').style.display = 'none';
+    
+    if (!email || !password || !confirmPassword) {
+        const signupMessage = document.getElementById('signupMessage');
+        signupMessage.textContent = 'Please fill in all fields';
+        signupMessage.style.display = 'block';
+        return;
+    }
+    
+    if (!email.includes('@')) {
+        const signupMessage = document.getElementById('signupMessage');
+        signupMessage.textContent = 'Please enter a valid email address';
+        signupMessage.style.display = 'block';
+        return;
+    }
+    
+    if (password.length < 6) {
+        const signupMessage = document.getElementById('signupMessage');
+        signupMessage.textContent = 'Password must be at least 6 characters';
+        signupMessage.style.display = 'block';
+        return;
+    }
+    
+    if (password !== confirmPassword) {
+        const signupMessage = document.getElementById('signupMessage');
+        signupMessage.textContent = 'Passwords do not match. Please try again.';
+        signupMessage.style.display = 'block';
+        return;
+    }
+    
+    const userKey = `user_${email}`;
+    console.log('Checking if user exists:', userKey);
+    
+    // First, check if user already exists
+    try {
+        const existingUser = await storageGet(userKey);
+        console.log('Found existing user:', existingUser);
+        
+        // If we got here without an error, the user exists
+        showTab('login');
+        document.getElementById('loginEmail').value = email;
+        
+        // Show visible error message
+        const loginMessage = document.getElementById('loginMessage');
+        loginMessage.textContent = 'An account with this email already exists. Please login with your password.';
+        loginMessage.style.display = 'block';
+        
+        return;
+        
+    } catch (checkError) {
+        // User doesn't exist - this is good, we can proceed with signup
+        console.log('No existing user found (expected):', checkError.message);
+    }
+    
+    // Now create the new user
+    try {
+        const newUser = {
+            email: email,
+            password: password,
+            createdAt: new Date().toISOString()
+        };
+        
+        console.log('Creating new user:', userKey);
+                
+        await storageSet(userKey, JSON.stringify(newUser));
+        console.log('User created successfully');
+        
+        // Auto-login after signup
+        currentUser = email;
+        isGuest = false;
+        
+        // Initialize empty data for new user
+        roster = [];
+        window.roster = [];
+        window.savedPresets = {};
+        
+        showMainApp();
+        alert('Account created successfully!');
+    } catch (error) {
+        console.error('Signup error:', error);
+        const signupMessage = document.getElementById('signupMessage');
+        signupMessage.textContent = 'Signup failed. Please try again. Error: ' + error.message;
+        signupMessage.style.display = 'block';
+    }
+}
+
+// Continue as guest
+function continueAsGuest() {
+    currentUser = null;
+    isGuest = true;
+    showMainApp();
+}
+
+// Show main app
+function showMainApp() {
+    document.getElementById('authScreen').classList.add('hidden');
+    document.getElementById('mainApp').classList.remove('hidden');
+}
+
+// Logout
+function logout() {
+    currentUser = null;
+    isGuest = false;
+    roster = [];
+    window.roster = [];
+    selectedForGame = [];
+    window.selectedForGame = [];
+    window.savedPresets = {};
+    
+    document.getElementById('authScreen').classList.remove('hidden');
+    document.getElementById('mainApp').classList.add('hidden');
+    
+    // Clear forms
+    document.getElementById('loginEmail').value = '';
+    document.getElementById('loginPassword').value = '';
+    document.getElementById('signupEmail').value = '';
+    document.getElementById('signupPassword').value = '';
+    document.getElementById('signupPasswordConfirm').value = '';
+    
+    renderRoster();
+    displaySavedRosters();
+}
+
+// Load user data
+async function loadUserData() {
+    if (isGuest) return;
+
+    try {
+        const rosterKey = `roster_${currentUser}`;
+        const presetsKey = `presets_${currentUser}`;
+
+        let rosterData = null, presetsData = null;
+
+        try { rosterData = await storageGet(rosterKey); } catch {}
+        try { presetsData = await storageGet(presetsKey); } catch {}
+
+        const loadedRoster = rosterData?.value ? safeJsonParse(rosterData.value, []) : [];
+        let rosterModified = false;
+
+        loadedRoster.forEach(p => {
+            if (!p.id) {
+                p.id = makeId();
+                rosterModified = true;
+            }
+        });
+
+        roster = loadedRoster;
+        window.roster = roster;
+
+        let presets = presetsData?.value ? safeJsonParse(presetsData.value, {}) : {};
+        let presetsModified = false;
+
+        for (const [name, value] of Object.entries(presets)) {
+            if (Array.isArray(value) && value.length && typeof value[0] === "object") {
+                const ids = [];
+                value.forEach(oldPerson => {
+                    let found = window.roster.find(p => p.name === oldPerson.name && p.img === oldPerson.img);
+                    if (!found) {
+                        const newPerson = { id: makeId(), name: oldPerson.name, img: oldPerson.img };
+                        window.roster.push(newPerson);
+                        roster = window.roster;
+                        found = newPerson;
+                        rosterModified = true;
+                    }
+                    ids.push(found.id);
+                });
+                presets[name] = ids;
+                presetsModified = true;
+            }
+        }
+
+        window.savedPresets = presets;
+
+        if (rosterModified) await storageSet(rosterKey, JSON.stringify(window.roster));
+        if (presetsModified) await storageSet(presetsKey, JSON.stringify(window.savedPresets));
+
+        renderRoster();
+        displaySavedRosters();
+    } catch (error) {
+        console.log('Error loading user data:', error);
+        roster = [];
+        window.roster = [];
+        window.savedPresets = {};
+        renderRoster();
+        displaySavedRosters();
+    }
+}
+
+let roster = [];
+let selectedForGame = []; // Track selections for this game
+let gameRoster = [];
+let currentPicker=1,currentTurn=1,selectedCard=null,secret1=null,secret2=null;
+let eliminated={1:new Set(),2:new Set()};
+
+// -------------------- Two-Screen (WebRTC) Multiplayer --------------------
+let onlineMode = false;
+let onlineRole = null; // 'host' or 'join'
+let myPlayerNumber = 1; // host=1, join=2
+let pc = null;
+let dc = null;
+let onlineConnected = false;
+let onlineGameRoster = [];
+let mySecretOnline = null;
+let myReadyOnline = false;
+let oppReadyOnline = false;
+let pendingGuessName = null;
+
+// WebSocket signaling (numeric room code flow)
+let ws = null;
+let roomCode = null;
+let joinerConnected = false;
+
+function openOnlineModal(){
+  document.getElementById('onlineModal').style.display = 'flex';
+  showOnlineTab('host');
+  setOnlineStatus('Status: Not connected');
+  setHostStatus('Status: Not connected');
+  setJoinStatus('Status: Not connected');
+}
+function closeOnlineModal(){
+  document.getElementById('onlineModal').style.display = 'none';
+}
+function showOnlineTab(tab){
+  const hostTab = document.getElementById('hostTab');
+  const joinTab = document.getElementById('joinTab');
+  const hostPane = document.getElementById('onlineHostPane');
+  const joinPane = document.getElementById('onlineJoinPane');
+
+  if(tab === 'host'){
+    hostTab.classList.add('active'); joinTab.classList.remove('active');
+    hostPane.classList.remove('hidden'); joinPane.classList.add('hidden');
+  } else {
+    joinTab.classList.add('active'); hostTab.classList.remove('active');
+    joinPane.classList.remove('hidden'); hostPane.classList.add('hidden');
+  }
+}
+function setOnlineStatus(text){
+  const el = document.getElementById('onlineConnStatus');
+  if(el) el.textContent = text;
+}
+function setHostStatus(text){
+  const el = document.getElementById('hostStatus');
+  if(el) el.textContent = text;
+}
+function setJoinStatus(text){
+  const el = document.getElementById('joinStatus');
+  if(el) el.textContent = text;
+}
+function setHostCode(code){
+  const el = document.getElementById('hostGameCode');
+  if(el) el.textContent = code ? code : '— — — — — —';
+}
+
+function getServerUrl(){
+  const params = new URLSearchParams(window.location.search);
+  const override = params.get('server');
+  if(override && override.trim()){
+    return override.trim();
+  }
+  return 'https://guesswho-signaling.onrender.com';
+}
+
+
+
+function normalizeWsUrl(url){
+  let wsUrl = url.trim();
+  if(wsUrl.startsWith('https://')) wsUrl = 'wss://' + wsUrl.slice(8);
+  else if(wsUrl.startsWith('http://')) wsUrl = 'ws://' + wsUrl.slice(7);
+  return wsUrl;
+}
+function normalizeHttpUrl(url){
+  let httpUrl = url.trim();
+  if(httpUrl.startsWith('wss://')) httpUrl = 'https://' + httpUrl.slice(6);
+  else if(httpUrl.startsWith('ws://')) httpUrl = 'http://' + httpUrl.slice(5);
+  return httpUrl;
+}
+
+async function wakeServerOnce(){
+  const base = getServerUrl();
+  if(!base) return;
+  const httpUrl = normalizeHttpUrl(base);
+  const controller = new AbortController();
+  const t = setTimeout(()=>controller.abort(), 6000);
+  try {
+    setOnlineStatus('Status: Waking server…');
+    if(onlineRole === 'host') setHostStatus('Status: Waking server…');
+    if(onlineRole === 'join') setJoinStatus('Status: Waking server…');
+    await fetch(httpUrl, { method:'GET', mode:'cors', signal: controller.signal, cache:'no-store' });
+  } catch(e){
+    // It's okay if this fails (CORS / timeout). We'll still try WebSocket.
+  } finally {
+    clearTimeout(t);
+  }
+}
+
+async function wsEnsureConnectedWithRetry(maxAttempts=4){
+  let lastErr = null;
+  for(let attempt=1; attempt<=maxAttempts; attempt++){
+    try {
+      if(attempt === 1) await wakeServerOnce();
+      await wsEnsureConnectedWithRetry();
+      return;
+    } catch(e){
+      lastErr = e;
+      const waitMs = 800 * attempt;
+      setOnlineStatus(`Status: Connecting… (retry ${attempt}/${maxAttempts})`);
+      if(onlineRole === 'host') setHostStatus(`Status: Connecting… (retry ${attempt}/${maxAttempts})`);
+      if(onlineRole === 'join') setJoinStatus(`Status: Connecting… (retry ${attempt}/${maxAttempts})`);
+      await new Promise(r=>setTimeout(r, waitMs));
+    }
+  }
+  throw lastErr || new Error('Could not connect');
+}
+
+function showOnlineWait(title, sub=null, showBtn=false){
+  document.getElementById('onlineWaitText').textContent = title;
+  document.getElementById('onlineWaitSub').textContent = sub || '';
+  document.getElementById('onlineWaitBtn').style.display = showBtn ? 'inline-block' : 'none';
+  document.getElementById('onlineWait').style.display = 'flex';
+}
+function hideOnlineWait(){
+  document.getElementById('onlineWait').style.display = 'none';
+}
+
+function disconnectOnline(){
+  try { if(ws) ws.close(); } catch {}
+  ws = null; roomCode = null; joinerConnected = false;
+
+  try { if(dc) dc.close(); } catch {}
+  try { if(pc) pc.close(); } catch {}
+  pc = null; dc = null;
+
+  onlineConnected = false;
+  onlineMode = false;
+  onlineRole = null;
+  myPlayerNumber = 1;
+  mySecretOnline = null;
+  myReadyOnline = false;
+  oppReadyOnline = false;
+  pendingGuessName = null;
+
+  setHostCode(null);
+  setOnlineStatus('Status: Not connected');
+  setHostStatus('Status: Not connected');
+  setJoinStatus('Status: Not connected');
+  hideOnlineWait();
+}
+
+function wsEnsureConnected(){
+  return new Promise((resolve, reject) => {
+    const url = getServerUrl();
+    if(!url) return reject(new Error('Missing Server URL'));
+
+    if(ws && (ws.readyState === WebSocket.OPEN)) return resolve();
+
+    if(ws && ws.readyState === WebSocket.CONNECTING){
+      const t = setInterval(() => {
+        if(!ws) { clearInterval(t); reject(new Error('WebSocket closed')); }
+        else if(ws.readyState === WebSocket.OPEN) { clearInterval(t); resolve(); }
+        else if(ws.readyState === WebSocket.CLOSED) { clearInterval(t); reject(new Error('WebSocket closed')); }
+      }, 100);
+      setTimeout(()=>{ clearInterval(t); reject(new Error('WebSocket timeout')); }, 8000);
+      return;
+    }
+
+    let wsUrl = normalizeWsUrl(url);
+
+    ws = new WebSocket(wsUrl);
+
+    ws.onopen = () => resolve();
+    ws.onerror = () => reject(new Error('WebSocket error'));
+    ws.onclose = () => {
+      setOnlineStatus('Status: Disconnected');
+      setHostStatus('Status: Disconnected');
+      setJoinStatus('Status: Disconnected');
+    };
+    ws.onmessage = (ev) => {
+      try {
+        const msg = JSON.parse(ev.data);
+        handleWsMessage(msg);
+      } catch(e){
+        console.log('Bad WS message', ev.data);
+      }
+    };
+
+    setOnlineStatus('Status: Connecting…');
+    setHostStatus('Status: Connecting…');
+    setJoinStatus('Status: Connecting…');
+  });
+}
+
+function wsSend(obj){
+  if(ws && ws.readyState === WebSocket.OPEN){
+    ws.send(JSON.stringify(obj));
+  }
+}
+
+async function hostCreateGame(){
+  onlineRole = 'host';
+  myPlayerNumber = 1;
+  joinerConnected = false;
+  setHostStatus('Status: Connecting…');
+  setOnlineStatus('Status: Connecting…');
+
+  try {
+    await wsEnsureConnectedWithRetry();
+    wsSend({ type: 'HOST_CREATE' });
+  } catch (e){
+    console.error(e);
+    alert('Could not connect yet. If Render is sleeping, wait ~15–30 seconds and try again. Also double-check the Server URL.');
+    setHostStatus('Status: Not connected');
+    setOnlineStatus('Status: Not connected');
+  }
+}
+
+async function joinGame(){
+  onlineRole = 'join';
+  myPlayerNumber = 2;
+  const raw = (document.getElementById('joinCodeInput')?.value || '');
+  const code = raw.replace(/\D/g,'').slice(0,6);
+  if(code.length !== 6) return alert('Enter the 6-digit code.');
+  setJoinStatus('Status: Connecting…');
+  setOnlineStatus('Status: Connecting…');
+
+  try {
+    await wsEnsureConnectedWithRetry();
+    wsSend({ type: 'JOIN_ROOM', code });
+  } catch (e){
+    console.error(e);
+    alert('Could not connect yet. If Render is sleeping, wait ~15–30 seconds and try again. Also double-check the Server URL.');
+    setJoinStatus('Status: Not connected');
+    setOnlineStatus('Status: Not connected');
+  }
+}
+
+function handleWsMessage(msg){
+  if(msg.type === 'ROOM_CREATED'){
+    roomCode = msg.code;
+    setHostCode(roomCode);
+    setHostStatus('Status: Waiting for joiner…');
+    setOnlineStatus('Status: Waiting for joiner…');
+  }
+  else if(msg.type === 'JOINER_CONNECTED'){
+    joinerConnected = true;
+    setHostStatus('Status: Joiner connected ✅');
+    setOnlineStatus('Status: Joiner connected ✅');
+    hostStartRtcHandshake();
+  }
+  else if(msg.type === 'JOINED'){
+    roomCode = msg.code;
+    setJoinStatus('Status: Connected to room ✅');
+    setOnlineStatus('Status: Connected to room ✅');
+  }
+  else if(msg.type === 'SIGNAL'){
+    handleSignal(msg.data);
+  }
+  else if(msg.type === 'ERROR'){
+    alert(msg.message || 'Server error');
+    setOnlineStatus('Status: Error');
+    if(onlineRole === 'host') setHostStatus('Status: Error');
+    if(onlineRole === 'join') setJoinStatus('Status: Error');
+  }
+  else if(msg.type === 'JOINER_DISCONNECTED'){
+    joinerConnected = false;
+    setHostStatus('Status: Joiner disconnected');
+    setOnlineStatus('Status: Joiner disconnected');
+  }
+}
+
+function ensurePeer(){
+  if(pc) return;
+
+  pc = new RTCPeerConnection({
+    iceServers: [{ urls: "stun:stun.l.google.com:19302" }]
+  });
+
+  pc.onicecandidate = (ev) => {
+    if(ev.candidate){
+      wsSend({ type:'SIGNAL', data:{ kind:'ice', payload: ev.candidate } });
+    }
+  };
+
+  pc.onconnectionstatechange = () => {
+    if(pc.connectionState === 'connected'){
+      setOnlineStatus('Status: Connected ✅');
+    }
+  };
+
+  pc.ondatachannel = (ev) => {
+    dc = ev.channel;
+    wireDataChannel();
+  };
+}
+
+function wireDataChannel(){
+  if(!dc) return;
+  dc.onopen = () => {
+    onlineConnected = true;
+    setOnlineStatus('Status: Connected ✅');
+    if(onlineRole === 'host') setHostStatus('Status: Connected ✅');
+    if(onlineRole === 'join') setJoinStatus('Status: Connected ✅');
+  };
+  dc.onclose = () => {
+    onlineConnected = false;
+    setOnlineStatus('Status: Disconnected');
+  };
+  dc.onmessage = (ev) => {
+    try {
+      const msg = JSON.parse(ev.data);
+      handleOnlineMessage(msg);
+    } catch (e) {
+      console.log('Bad message:', ev.data);
+    }
+  };
+}
+
+function sendOnline(msg){
+  if(dc && dc.readyState === 'open'){
+    dc.send(JSON.stringify(msg));
+  }
+}
+
+async function hostStartRtcHandshake(){
+  if(onlineRole !== 'host') return;
+  ensurePeer();
+  if(!dc){
+    dc = pc.createDataChannel('guesswho');
+    wireDataChannel();
+  }
+  const offer = await pc.createOffer();
+  await pc.setLocalDescription(offer);
+  wsSend({ type:'SIGNAL', data:{ kind:'offer', payload: pc.localDescription }});
+  setHostStatus('Status: Sending connection…');
+}
+
+async function handleSignal(data){
+  if(!data) return;
+  ensurePeer();
+
+  if(data.kind === 'offer'){
+    await pc.setRemoteDescription(data.payload);
+    const answer = await pc.createAnswer();
+    await pc.setLocalDescription(answer);
+    wsSend({ type:'SIGNAL', data:{ kind:'answer', payload: pc.localDescription }});
+    setJoinStatus('Status: Sending response…');
+  }
+  else if(data.kind === 'answer'){
+    await pc.setRemoteDescription(data.payload);
+    setHostStatus('Status: Connected ✅');
+  }
+  else if(data.kind === 'ice'){
+    try { await pc.addIceCandidate(data.payload); } catch (e) {}
+  }
+}
+
+// Host starts the online game using the currently selected roster
+function startOnlineGameAsHost(){
+  if(!onlineConnected){
+    alert('Not connected yet. Create Game Code, then accept the Answer.');
+    return;
+  }
+  // Use current selection as game roster
+  onlineGameRoster = (window.selectedForGame || []).map(idx => window.roster[idx]).filter(Boolean);
+  if(onlineGameRoster.length < 2){
+    alert('Select at least 2 people (green outline) before starting.');
+    return;
+  }
+
+  // Send roster to join player
+  sendOnline({ type:'INIT', roster: onlineGameRoster });
+
+  // Locally begin pick phase
+  onlineMode = true;
+  closeOnlineModal();
+  beginOnlinePick(onlineGameRoster);
+  setOnlineStatus('Status: Connected ✅');
+}
+
+function beginOnlinePick(rosterArr){
+  onlineGameRoster = rosterArr;
+  mySecretOnline = null;
+  myReadyOnline = false;
+  oppReadyOnline = false;
+  pendingGuessName = null;
+
+  document.getElementById('rosterBox').classList.add('hidden');
+  document.getElementById('pickBox').classList.remove('hidden');
+  document.getElementById('gameBox').classList.add('hidden');
+
+  pickTitle.textContent = `Player ${myPlayerNumber}: Pick Your Character`;
+  pickGrid.innerHTML = '';
+  selectedCard = null;
+
+  onlineGameRoster.forEach(p => {
+    const c = document.createElement('div');
+    c.className = 'card';
+    c.innerHTML = `<img src="${p.img}"><div class="name">${p.name}</div>`;
+    c.onclick = ()=>{ pickGrid.querySelectorAll('.card').forEach(x=>x.classList.remove('selected')); c.classList.add('selected'); selectedCard=p; };
+    pickGrid.appendChild(c);
+  });
+}
+
+// Override confirmPick behavior when onlineMode is true
+const _confirmPickLocal = confirmPick;
+confirmPick = function(){
+  if(!onlineMode) return _confirmPickLocal();
+
+  if(!selectedCard) return alert('Pick one');
+  mySecretOnline = selectedCard;
+  myReadyOnline = true;
+
+  // Hide pick box, show waiting
+  document.getElementById('pickBox').classList.add('hidden');
+  showOnlineWait('Waiting for the other player…', 'Once both players have picked a character, the game will start.');
+
+  sendOnline({ type:'READY' });
+
+  // If both ready already, start
+  maybeStartOnlineGame();
+};
+
+function maybeStartOnlineGame(){
+  if(myReadyOnline && oppReadyOnline){
+    hideOnlineWait();
+    document.getElementById('gameBox').classList.remove('hidden');
+
+    // Online game always starts with Player 1
+    currentTurn = 1;
+    eliminated = {1:new Set(),2:new Set()};
+    guessMode = false;
+
+    renderOnlineBoard();
+  }
+}
+
+function renderOnlineBoard(){
+  // Only render the board; turn mechanics differ
+  boardGrid.innerHTML = '';
+  const secret = mySecretOnline;
+  turnTitle.textContent = `Player ${currentTurn} Turn`;
+  secretDisplay.textContent = `Your Secret: ${secret?.name || ''}`;
+
+  // Disable controls if not your turn
+  const isMyTurn = (currentTurn === myPlayerNumber);
+  document.querySelector('.guess')?.toggleAttribute('disabled', !isMyTurn);
+
+  onlineGameRoster.forEach(p=>{
+    const c=document.createElement('div');
+    c.className='card';
+    if(eliminated[myPlayerNumber].has(p.name)) c.classList.add('eliminated');
+    c.innerHTML=`<img src="${p.img}"><div class="name">${p.name}</div>`;
+    c.onclick=()=>{
+      if(!isMyTurn){
+        showOnlineWait('Not your turn', 'Wait for the other player to end their turn.', true);
+        return;
+      }
+      if(guessMode){
+        onlineSendGuess(p.name);
+      } else {
+        eliminated[myPlayerNumber].has(p.name) ? eliminated[myPlayerNumber].delete(p.name) : eliminated[myPlayerNumber].add(p.name);
+        c.classList.toggle('eliminated');
+      }
+    };
+    boardGrid.appendChild(c);
+  });
+}
+
+// Override renderBoard/resetEliminations/endTurn/guessMode flows for online
+const _startGuessMode = startGuessMode;
+startGuessMode = function(){
+  if(!onlineMode) return _startGuessMode();
+  if(currentTurn !== myPlayerNumber){
+    showOnlineWait('Not your turn', 'You can only guess on your turn.', true);
+    return;
+  }
+  guessMode = true;
+  showOnlineWait('Guess Mode', 'Tap the character you want to guess.', true);
+};
+
+const _resetEliminations = resetEliminations;
+resetEliminations = function(){
+  if(!onlineMode) return _resetEliminations();
+  eliminated[myPlayerNumber] = new Set();
+  renderOnlineBoard();
+};
+
+const _endTurn = endTurn;
+endTurn = function(){
+  if(!onlineMode) return _endTurn();
+  if(currentTurn !== myPlayerNumber){
+    showOnlineWait('Not your turn', 'Wait for the other player to end their turn.', true);
+    return;
+  }
+  currentTurn = (currentTurn === 1 ? 2 : 1);
+  sendOnline({ type:'TURN', turn: currentTurn });
+  renderOnlineBoard();
+  showOnlineWait('Turn passed', `It is now Player ${currentTurn}'s turn.`, true);
+};
+
+function onlineSendGuess(name){
+  if(!onlineMode) return;
+  if(currentTurn !== myPlayerNumber) return;
+  guessMode = false;
+  pendingGuessName = name;
+  showOnlineWait('Checking guess…', `You guessed: ${name}`, false);
+  sendOnline({ type:'GUESS', name });
+}
+
+function handleOnlineMessage(msg){
+  switch(msg.type){
+    case 'INIT': {
+      // Join receives roster and begins online game
+      onlineMode = true;
+      onlineRole = 'join';
+      myPlayerNumber = 2;
+      onlineGameRoster = msg.roster || [];
+      closeOnlineModal();
+      beginOnlinePick(onlineGameRoster);
+      break;
+    }
+    case 'READY': {
+      oppReadyOnline = true;
+      maybeStartOnlineGame();
+      break;
+    }
+    case 'TURN': {
+      currentTurn = msg.turn;
+      renderOnlineBoard();
+      if(currentTurn === myPlayerNumber){
+        showOnlineWait('Your turn!', 'Ask a question, eliminate, or make a guess.', true);
+      }
+      break;
+    }
+    case 'GUESS': {
+      // Opponent guessed a name on their turn; we evaluate against our secret and respond
+      const guessed = msg.name;
+      const correct = (guessed === (mySecretOnline?.name || ''));
+      sendOnline({ type:'GUESS_RESULT', correct, guessed });
+      if(correct){
+        // Opponent wins
+        onlineWin( (myPlayerNumber === 1 ? 2 : 1) );
+      } else {
+        // Nothing else needed; opponent will handle
+        showOnlineWait('Opponent guessed wrong', `${guessed} was not your character.`, true);
+      }
+      break;
+    }
+    case 'GUESS_RESULT': {
+      hideOnlineWait();
+      const { correct, guessed } = msg;
+      if(correct){
+        onlineWin(myPlayerNumber);
+      } else {
+        showOnlineWait('❌ Wrong guess!', `${guessed} was not the opponent's character.`, true);
+        // turn automatically remains; user can end turn when ready
+      }
+      pendingGuessName = null;
+      break;
+    }
+    case 'WIN': {
+      onlineWin(msg.player);
+      break;
+    }
+  }
+}
+
+function onlineWin(player){
+  // Show same win screen
+  document.getElementById('winText').textContent = `🎉 Player ${player} Wins!`;
+  document.getElementById('winScreen').style.display = 'flex';
+
+  // Confetti (reuse)
+  for(let i=0;i<100;i++){
+    const c=document.createElement('div');
+    c.className='confetti';
+    c.style.left=Math.random()*100+'vw';
+    c.style.top='-10px';
+    c.style.background=`hsl(${Math.random()*360},80%,60%)`;
+    c.style.animationDelay=Math.random()*3+'s';
+    c.style.animationDuration=(2 + Math.random()*2)+'s';
+    document.body.appendChild(c);
+  }
+}
+
+// Reset game: keep online connection but exit to roster
+const _resetGame = resetGame;
+resetGame = function(){
+  if(!onlineMode) return _resetGame();
+  // Online reset: return to roster selection screen, keep connection
+  selectedForGame = [];
+  window.selectedForGame = [];
+  onlineGameRoster = [];
+  mySecretOnline = null;
+  myReadyOnline = false;
+  oppReadyOnline = false;
+  pendingGuessName = null;
+  guessMode = false;
+  eliminated = {1:new Set(),2:new Set()};
+  currentTurn = 1;
+
+  document.querySelectorAll('.confetti').forEach(c => c.remove());
+  document.getElementById('rosterBox').classList.remove('hidden');
+  document.getElementById('pickBox').classList.add('hidden');
+  document.getElementById('gameBox').classList.add('hidden');
+  document.getElementById('winScreen').style.display = 'none';
+  renderRoster();
+  displaySavedRosters();
+};
+// ------------------ end Two-Screen Multiplayer ------------------
+
+let waitingForNextPicker=false, guessMode=false;
+
+// Load roster from storage on page load
+async function loadRoster() {
+    if (isGuest || !currentUser) return;
+    
+    try {
+        const rosterKey = `roster_${currentUser}`;
+        const result = await storageGet(rosterKey);
+        if (result && result.value) {
+            roster = JSON.parse(result.value);
+            renderRoster();
+        }
+    } catch (error) {
+        console.log('No saved roster found:', error);
+    }
+}
+
+// Save roster to storage
+async function saveRoster() {
+    if (isGuest || !currentUser) return;
+    try {
+        const rosterKey = `roster_${currentUser}`;
+        await storageSet(rosterKey, JSON.stringify(roster));
+        console.log('Roster saved successfully');
+    } catch (error) {
+        console.error('Failed to save roster:', error);
+        alert('⚠️ Could not save roster. Try smaller images or delete some entries.');
+    }
+}
+
+// Load saved presets from storage
+async function loadSavedPresets() {
+    if (isGuest || !currentUser) return;
+    
+    try {
+        const presetsKey = `presets_${currentUser}`;
+        const result = await storageGet(presetsKey);
+        if (result && result.value) {
+            window.savedPresets = JSON.parse(result.value);
+            displaySavedRosters();
+        }
+    } catch (error) {
+        console.log('No saved presets found:', error);
+        window.savedPresets = {};
+    }
+}
+
+// Save presets to storage
+async function saveSavedPresets() {
+    if (isGuest || !currentUser) return;
+    try {
+        const presetsKey = `presets_${currentUser}`;
+        await storageSet(presetsKey, JSON.stringify(window.savedPresets));
+        console.log('Presets saved successfully');
+    } catch (error) {
+        console.error('Failed to save presets:', error);
+        alert('⚠️ Could not save rosters. Try deleting a roster name you no longer need.');
+    }
+}
+
+// Initialize - DON'T load on startup anymore since we need auth first
+// Loading happens after login/signup in loadUserData()
+
+const rosterGrid=document.getElementById('rosterGrid');
+const pickGrid=document.getElementById('pickGrid');
+const boardGrid=document.getElementById('boardGrid');
+const pickTitle=document.getElementById('pickTitle');
+const turnTitle=document.getElementById('turnTitle');
+const secretDisplay=document.getElementById('secretDisplay');
+const passScreen=document.getElementById('passScreen');
+const wrongScreen=document.getElementById('wrongScreen');
+const deleteConfirm=document.getElementById('deleteConfirm');
+const deletePresetConfirm=document.getElementById('deletePresetConfirm');
+const deleteText=document.getElementById('deleteText');
+const deletePresetText=document.getElementById('deletePresetText');
+const passText=document.getElementById('passText');
+
+let pendingDeleteIndex = null;
+let pendingDeletePresetName = null;
+
+function renderRoster(){
+    console.log('renderRoster called');
+    rosterGrid.innerHTML='';
+    
+    // Make sure roster exists
+    if (!window.roster) window.roster = [];
+    
+    console.log('About to iterate roster, length:', window.roster.length);
+    
+    window.roster.forEach((p,i)=>{
+        console.log('Creating card for:', p.name);
+        const wrapper = document.createElement('div');
+        wrapper.style.position = 'relative';
+        
+        const c = document.createElement('div');
+        c.className = 'card';
+        if(window.selectedForGame && window.selectedForGame.includes(i)) c.classList.add('selected');
+        c.innerHTML = `<img src="${p.img}"><div class="name">${p.name}</div>`;
+        c.onclick = () => {
+            if(!window.selectedForGame) window.selectedForGame = [];
+            if(window.selectedForGame.includes(i)) {
+                window.selectedForGame = window.selectedForGame.filter(idx => idx !== i);
+                selectedForGame = window.selectedForGame;
+                c.classList.remove('selected');
+            } else {
+                window.selectedForGame.push(i);
+                selectedForGame = window.selectedForGame;
+                c.classList.add('selected');
+            }
+        };
+        
+        const deleteBtn = document.createElement('button');
+        deleteBtn.className = 'delete-btn';
+        deleteBtn.innerHTML = '×';
+        deleteBtn.onclick = (e) => {
+            e.stopPropagation();
+            e.preventDefault();
+            showDeleteConfirm(i);
+        };
+        
+        wrapper.appendChild(c);
+        wrapper.appendChild(deleteBtn);
+        rosterGrid.appendChild(wrapper);
+    });
+    console.log('Roster rendered with', window.roster.length, 'people');
+}
+renderRoster();
+
+async function addPerson(){
+    const n = nameInput.value.trim();
+    const file = imgInput.files[0];
+    if(!n || !file) return;
+
+    try {
+        const compressedDataUrl = await compressImageFile(file, 256, 0.72);
+
+        if (!window.roster) {
+            window.roster = [];
+            roster = [];
+        }
+
+        window.roster.push({ id: makeId(), name: n, img: compressedDataUrl });
+        roster = window.roster;
+
+        await saveRoster();
+        renderRoster();
+
+        nameInput.value=''; imgInput.value='';
+        dropZone.textContent = '🖼️ Or Drag & Drop Image Here';
+        dropZone.style.color = '#667eea';
+    } catch (err) {
+        console.error('Failed to add person:', err);
+        alert('⚠️ Could not add person. Try a smaller image or a different browser.');
+    }
+}
+
+function showDeleteConfirm(index) {
+    pendingDeleteIndex = index;
+    window.pendingDeleteIndex = index;
+    deleteText.textContent = `Delete ${window.roster[index].name} permanently?`;
+    deleteConfirm.style.display = 'flex';
+}
+
+function cancelDelete() {
+    deleteConfirm.style.display = 'none';
+    pendingDeleteIndex = null;
+    window.pendingDeleteIndex = null;
+}
+
+async function confirmDelete() {
+    if (window.pendingDeleteIndex !== null) {
+        console.log('Deleting person at index:', window.pendingDeleteIndex);
+        window.roster.splice(window.pendingDeleteIndex, 1);
+        roster = window.roster;
+        
+        // Update selectedForGame indices after deletion
+        window.selectedForGame = window.selectedForGame
+            .filter(idx => idx !== window.pendingDeleteIndex)
+            .map(idx => idx > window.pendingDeleteIndex ? idx - 1 : idx);
+        selectedForGame = window.selectedForGame;
+        
+        await saveRoster();
+        renderRoster();
+    }
+    deleteConfirm.style.display = 'none';
+    pendingDeleteIndex = null;
+    window.pendingDeleteIndex = null;
+}
+
+async function deletePersonFromRoster(index) {
+    console.log('deletePersonFromRoster called with index:', index);
+    console.log('Person to delete:', roster[index]);
+    
+    const personName = roster[index].name;
+    
+    // Use a timeout to ensure the confirmation shows properly
+    setTimeout(async () => {
+        const confirmed = confirm(`Delete ${personName} from roster permanently?`);
+        console.log('Confirmation result:', confirmed);
+        
+        if(confirmed) {
+            console.log('User confirmed deletion');
+            roster.splice(index, 1);
+            console.log('Roster after deletion:', roster);
+            
+            // Update selectedForGame indices after deletion
+            selectedForGame = selectedForGame
+                .filter(idx => idx !== index)
+                .map(idx => idx > index ? idx - 1 : idx);
+            
+            console.log('Saving roster...');
+            await saveRoster();
+            console.log('Roster saved, re-rendering...');
+            renderRoster();
+        } else {
+            console.log('User cancelled deletion');
+        }
+    }, 10);
+}
+
+function beginSetup(){
+    gameRoster = window.selectedForGame.map(idx => window.roster[idx]);
+    window.gameRoster = gameRoster;
+    if(gameRoster.length < 2) { 
+        document.getElementById('notEnoughScreen').style.display='flex';
+        return; 
+    }
+    document.getElementById('rosterBox').classList.add('hidden');
+    currentPicker = 1; waitingForNextPicker = false;
+    window.selectedForGame = []; // Clear selections for next game
+    selectedForGame = window.selectedForGame;
+    pickBox.classList.remove('hidden');
+    renderPicker();
+}
+
+function closeNotEnough() {
+    document.getElementById('notEnoughScreen').style.display='none';
+}
+
+function renderPicker(){
+    pickTitle.textContent=`Player ${currentPicker}: Pick Your Character`;
+    pickGrid.innerHTML=''; selectedCard=null;
+    gameRoster.forEach(p=>{
+        const c = document.createElement('div');
+        c.className='card';
+        c.innerHTML=`<img src="${p.img}"><div class="name">${p.name}</div>`;
+        c.onclick = ()=>{ pickGrid.querySelectorAll('.card').forEach(x=>x.classList.remove('selected')); c.classList.add('selected'); selectedCard=p; };
+        pickGrid.appendChild(c);
+    });
+}
+
+function confirmPick(){
+    if(!selectedCard) return alert('Pick one');
+    if(currentPicker===1){ secret1=selectedCard; waitingForNextPicker=true; showPass('Pass to Player 2 to pick their character'); }
+    else { secret2=selectedCard; pickBox.classList.add('hidden'); gameBox.classList.remove('hidden'); showPass('Pass to Player 1 to start the game'); }
+}
+
+function continueAfterPass(){
+    passScreen.style.display='none';
+    if(waitingForNextPicker){ currentPicker=2; waitingForNextPicker=false; renderPicker(); }
+    else renderBoard();
+}
+
+function renderBoard(){
+    boardGrid.innerHTML='';
+    const secret=currentTurn===1?secret1:secret2;
+    turnTitle.textContent=`Player ${currentTurn} Turn`;
+    secretDisplay.textContent=`Your Secret: ${secret.name}`;
+    gameRoster.forEach(p=>{
+        const c=document.createElement('div');
+        c.className='card';
+        if(eliminated[currentTurn].has(p.name)) c.classList.add('eliminated');
+        c.innerHTML=`<img src="${p.img}"><div class="name">${p.name}</div>`;
+        c.onclick=()=>{
+            if(guessMode){ checkGuess(p.name); } else { eliminated[currentTurn].has(p.name)?eliminated[currentTurn].delete(p.name):eliminated[currentTurn].add(p.name); c.classList.toggle('eliminated'); }
+        };
+        boardGrid.appendChild(c);
+    });
+}
+
+function startGuessMode(){ guessMode=true; alert('Tap the character you want to guess!'); }
+
+function checkGuess(name){ 
+    guessMode=false; 
+    const opp=currentTurn===1?secret2:secret1; 
+    if(name===opp.name){ 
+        win(currentTurn); 
+    } else { 
+        wrongScreen.style.display='flex';
+    } 
+}
+
+function continueAfterWrong() {
+    wrongScreen.style.display='none';
+    endTurn();
+}
+
+function resetEliminations(){ eliminated[currentTurn]=new Set(); renderBoard(); }
+function endTurn(){ showPass(`Pass to Player ${currentTurn===1?2:1}`); currentTurn=currentTurn===1?2:1; }
+function win(player){ 
+    document.getElementById('winText').textContent=`🎉 Player ${player} Wins!`; 
+    document.getElementById('winScreen').style.display='flex'; 
+    
+    // Create confetti
+    for(let i=0;i<100;i++){ 
+        const c=document.createElement('div'); 
+        c.className='confetti'; 
+        c.style.left=Math.random()*100+'vw'; 
+        c.style.top='-10px';
+        c.style.background=`hsl(${Math.random()*360},80%,60%)`; 
+        c.style.animationDelay=Math.random()*3+'s'; 
+        c.style.animationDuration=(2 + Math.random()*2)+'s';
+        document.body.appendChild(c); 
+    } 
+    console.log('Confetti created:', document.querySelectorAll('.confetti').length);
+}
+
+function showPass(t){ passText.textContent=t; passScreen.style.display='flex'; }
+
+// Preset roster management
+async function savePreset() {
+    if (!window.selectedForGame) window.selectedForGame = [];
+    if (!window.savedPresets) window.savedPresets = {};
+
+    const presetName = document.getElementById('presetNameInput').value.trim();
+
+    if (!presetName) {
+        alert('Please enter a name for this roster');
+        return;
+    }
+    if (window.selectedForGame.length < 2) {
+        alert('Select at least 2 people to save as a preset roster');
+        return;
+    }
+
+    const ids = window.selectedForGame
+        .map(idx => window.roster[idx]?.id)
+        .filter(Boolean);
+
+    window.savedPresets[presetName] = ids;
+
+    await saveSavedPresets();
+
+    window.selectedForGame = [];
+    selectedForGame = [];
+
+    document.getElementById('presetNameInput').value = '';
+    displaySavedRosters();
+    renderRoster();
+}
+
+function displaySavedRosters() {
+    const display = document.getElementById('savedRosterDisplay');
+
+    if (!window.savedPresets) window.savedPresets = {};
+    const presetNames = Object.keys(window.savedPresets);
+
+    if (presetNames.length === 0) {
+        display.innerHTML = '<p style="text-align:center;color:#6b7280;font-size:14px;">No saved rosters yet. Select people and save them!</p>';
+        return;
+    }
+
+    display.innerHTML = '';
+    presetNames.forEach(name => {
+        const ids = window.savedPresets[name] || [];
+        const people = ids.map(id => window.roster.find(p => p.id === id)).filter(Boolean);
+
+        const rosterCard = document.createElement('div');
+        rosterCard.style.cssText = 'background:#f9fafb;border-radius:8px;padding:12px;margin:8px 0;';
+
+        const header = document.createElement('div');
+        header.style.cssText = 'display:flex;justify-content:space-between;align-items:center;cursor:pointer;';
+        header.onclick = () => togglePresetDetails(name);
+
+        const info = document.createElement('div');
+        info.innerHTML = `<strong>${name}</strong><br><span style="font-size:12px;color:#6b7280;">${people.length} people selected</span>`;
+
+        const btnGroup = document.createElement('div');
+        btnGroup.style.cssText = 'display:flex;gap:8px;';
+
+        const loadBtn = document.createElement('button');
+        loadBtn.textContent = 'Load';
+        loadBtn.className = 'secondary';
+        loadBtn.style.minWidth = '80px';
+        loadBtn.onclick = (e) => { e.stopPropagation(); loadPreset(name).catch(err => console.error(err)); };
+
+        const delBtn = document.createElement('button');
+        delBtn.textContent = 'Delete';
+        delBtn.className = 'danger';
+        delBtn.style.minWidth = '80px';
+        delBtn.onclick = (e) => { e.stopPropagation(); deletePreset(name); };
+
+        btnGroup.appendChild(loadBtn);
+        btnGroup.appendChild(delBtn);
+        header.appendChild(info);
+        header.appendChild(btnGroup);
+
+        const details = document.createElement('div');
+        details.id = `preset-details-${name}`;
+        details.style.cssText = 'display:none;margin-top:12px;padding-top:12px;border-top:1px solid #e5e7eb;';
+        details.innerHTML = '<strong style="font-size:12px;color:#6b7280;">People in this roster:</strong>';
+
+        const peopleList = document.createElement('div');
+        peopleList.style.cssText = 'display:grid;grid-template-columns:repeat(auto-fill,minmax(80px,1fr));gap:10px;margin-top:8px;';
+
+        people.forEach(person => {
+            const personCard = document.createElement('div');
+            personCard.style.cssText = 'text-align:center;';
+
+            const img = document.createElement('img');
+            img.src = person.img;
+            img.style.cssText = 'width:100%;height:80px;object-fit:cover;border-radius:8px;';
+
+            const nameLabel = document.createElement('div');
+            nameLabel.textContent = person.name;
+            nameLabel.style.cssText = 'margin-top:4px;font-size:11px;font-weight:600;';
+
+            personCard.appendChild(img);
+            personCard.appendChild(nameLabel);
+            peopleList.appendChild(personCard);
+        });
+
+        details.appendChild(peopleList);
+        rosterCard.appendChild(header);
+        rosterCard.appendChild(details);
+        display.appendChild(rosterCard);
+    });
+}
+
+function togglePresetDetails(name) {
+    const details = document.getElementById(`preset-details-${name}`);
+    if (details.style.display === 'none') {
+        details.style.display = 'block';
+    } else {
+        details.style.display = 'none';
+    }
+}
+
+async function loadPreset(name) {
+    const ids = window.savedPresets[name] || [];
+    window.selectedForGame = [];
+
+    ids.forEach(id => {
+        const index = window.roster.findIndex(p => p.id === id);
+        if (index !== -1) window.selectedForGame.push(index);
+    });
+
+    selectedForGame = window.selectedForGame;
+    renderRoster();
+}
+
+function deletePreset(name) {
+    console.log('deletePreset called for:', name);
+    pendingDeletePresetName = name;
+    window.pendingDeletePresetName = name;
+    deletePresetText.textContent = `Delete roster "${name}" permanently?`;
+    deletePresetConfirm.style.display = 'flex';
+}
+
+function cancelDeletePreset() {
+    deletePresetConfirm.style.display = 'none';
+    pendingDeletePresetName = null;
+    window.pendingDeletePresetName = null;
+}
+
+function confirmDeletePreset() {
+    if (window.pendingDeletePresetName !== null) {
+        console.log('Deleting preset:', window.pendingDeletePresetName);
+        delete window.savedPresets[window.pendingDeletePresetName];
+        console.log('Remaining presets:', window.savedPresets);
+        
+        // Save to storage
+        saveSavedPresets();
+        
+        displaySavedRosters();
+    }
+    deletePresetConfirm.style.display = 'none';
+    pendingDeletePresetName = null;
+    window.pendingDeletePresetName = null;
+}
+
+function showPresets() {
+    const presetList = document.getElementById('presetList');
+    const presetNames = Object.keys(savedPresets);
+    
+    if (presetNames.length === 0) {
+        alert('No saved rosters yet. Select people and save them as a roster first.');
+        return;
+    }
+    
+    presetList.innerHTML = '<h4 style="margin:10px 0;">Select a Roster:</h4>';
+    presetNames.forEach(name => {
+        const btn = document.createElement('button');
+        btn.textContent = `${name} (${savedPresets[name].length} people)`;
+        btn.className = 'secondary';
+        btn.style.margin = '5px';
+        btn.onclick = () => loadPreset(name);
+        
+        const delBtn = document.createElement('button');
+        delBtn.textContent = '×';
+        delBtn.className = 'danger';
+        delBtn.style.minWidth = '40px';
+        delBtn.style.margin = '5px';
+        delBtn.onclick = (e) => {
+            e.stopPropagation();
+            deletePreset(name);
+        };
+        
+        const wrapper = document.createElement('div');
+        wrapper.style.display = 'inline-block';
+        wrapper.appendChild(btn);
+        wrapper.appendChild(delBtn);
+        presetList.appendChild(wrapper);
+    });
+    
+    const closeBtn = document.createElement('button');
+    closeBtn.textContent = 'Close';
+    closeBtn.style.margin = '10px 5px';
+    closeBtn.onclick = () => { presetList.style.display = 'none'; };
+    presetList.appendChild(document.createElement('br'));
+    presetList.appendChild(closeBtn);
+    
+    presetList.style.display = 'block';
+}
+
+// Reset game but keep roster
+function resetGame() {
+    selectedForGame = [];
+    gameRoster = [];
+    currentPicker = 1;
+    currentTurn = 1;
+    selectedCard = null;
+    secret1 = null;
+    secret2 = null;
+    eliminated = {1: new Set(), 2: new Set()};
+    waitingForNextPicker = false;
+    guessMode = false;
+    
+    // Remove all confetti
+    document.querySelectorAll('.confetti').forEach(c => c.remove());
+    
+    document.getElementById('rosterBox').classList.remove('hidden');
+    document.getElementById('pickBox').classList.add('hidden');
+    document.getElementById('gameBox').classList.add('hidden');
+    document.getElementById('winScreen').style.display='none';
+    
+    renderRoster();
+}
+</script>
+<!-- Multiplayer Room Screen -->
+<div id="roomScreen" class="auth-box" style="display:none;">
+  <h1>🌐 Multiplayer</h1>
+  <p style="text-align:center;color:#6b7280;margin-bottom:28px;font-size:15px;">Create or join a room to play with a friend</p>
+  
+  <button onclick="createRoom()" style="width:100%;margin-bottom:14px;">Create New Room</button>
+  
+  <div style="margin:20px 0;text-align:center;color:#9ca3af;font-weight:600;">OR</div>
+  
+  <input id="roomCodeInput" type="text" class="full-width" placeholder="Enter Room Code" style="text-transform:uppercase;" maxlength="6" />
+  <button onclick="joinRoom()" style="width:100%;margin-bottom:14px;" class="guess">Join Room</button>
+  
+  <div id="roomMessage" style="display:none;padding:12px;border-radius:12px;margin-top:14px;font-size:14px;"></div>
+  
+  <button onclick="backToAuth()" class="secondary" style="width:100%;margin-top:20px;">Back to Login</button>
+</div>
+
+<!-- Waiting Room Screen -->
+<div id="waitingScreen" class="auth-box" style="display:none;">
+  <h1>🎮 Room Created!</h1>
+  <p style="text-align:center;color:#6b7280;margin-bottom:20px;font-size:15px;">Share this code with your friend:</p>
+  
+  <div style="background:linear-gradient(135deg, #667eea 0%, #764ba2 100%);color:white;padding:24px;border-radius:18px;margin:20px 0;box-shadow:0 10px 30px rgba(102, 126, 234, 0.4);">
+    <div style="font-size:14px;margin-bottom:8px;opacity:0.9;">Room Code:</div>
+    <div id="displayRoomCode" style="font-size:42px;font-weight:800;letter-spacing:4px;"></div>
+  </div>
+  
+  <p style="text-align:center;color:#6b7280;font-size:14px;margin-bottom:20px;">Waiting for Player 2 to join...</p>
+  
+  <div class="loader" style="margin:20px auto;"></div>
+  
+  <button onclick="cancelRoom()" class="secondary" style="width:100%;margin-top:20px;">Cancel</button>
+</div>
+
+<!-- Socket.IO Client -->
+<script src="/socket.io/socket.io.js"></script>
+<script>
+// Multiplayer variables
+let socket = null;
+let currentRoomCode = null;
+let playerNumber = null;
+let isMultiplayer = false;
+
+// Initialize Socket.IO
+function initializeSocket() {
+    socket = io();
+    
+    socket.on('connect', () => {
+        console.log('Connected to server');
+    });
+    
+    socket.on('player-joined', () => {
+        showMessage('Player 2 joined! Starting game...', 'success');
+        setTimeout(() => {
+            document.getElementById('waitingScreen').style.display = 'none';
+            document.getElementById('mainApp').classList.remove('hidden');
+        }, 1500);
+    });
+    
+    socket.on('roster-synced', (roster) => {
+        window.roster = roster;
+        renderRoster();
+    });
+    
+    socket.on('selected-synced', (selectedForGame) => {
+        window.selectedForGame = selectedForGame;
+        renderRoster();
+    });
+    
+    socket.on('game-started', () => {
+        startGameMultiplayer();
+    });
+    
+    socket.on('secret-picked', (data) => {
+        const { playerNumber: pickerNum, secretIndex } = data;
+        if (pickerNum === 1) {
+            secret1 = secretIndex;
+        } else {
+            secret2 = secretIndex;
+        }
+        checkBothSecretsPicked();
+    });
+    
+    socket.on('eliminated-synced', (data) => {
+        const { playerNumber: pNum, eliminated: eliminatedSet } = data;
+        eliminated[pNum] = new Set(eliminatedSet);
+        renderGame();
+    });
+    
+    socket.on('turn-ended', () => {
+        currentTurn = currentTurn === 1 ? 2 : 1;
+        guessMode = false;
+        renderGame();
+    });
+    
+    socket.on('guess-made', (data) => {
+        const { playerNumber: guesser, guessIndex } = data;
+        handleOpponentGuess(guesser, guessIndex);
+    });
+    
+    socket.on('game-won', (data) => {
+        const { winner } = data;
+        showWinner(winner);
+    });
+    
+    socket.on('game-reset', () => {
+        resetGame();
+    });
+    
+    socket.on('player-disconnected', () => {
+        alert('Other player disconnected. Returning to room screen.');
+        resetToRoomScreen();
+    });
+    
+    socket.on('disconnect', () => {
+        console.log('Disconnected from server');
+    });
+}
+
+function createRoom() {
+    if (!socket) initializeSocket();
+    
+    socket.emit('create-room', (response) => {
+        if (response.success) {
+            currentRoomCode = response.roomCode;
+            playerNumber = response.playerNumber;
+            isMultiplayer = true;
+            
+            document.getElementById('roomScreen').style.display = 'none';
+            document.getElementById('waitingScreen').style.display = 'block';
+            document.getElementById('displayRoomCode').textContent = currentRoomCode;
+        }
+    });
+}
+
+function joinRoom() {
+    const input = document.getElementById('roomCodeInput');
+    const code = input.value.trim().toUpperCase();
+    
+    if (code.length !== 6) {
+        showMessage('Please enter a 6-character room code', 'error');
+        return;
+    }
+    
+    if (!socket) initializeSocket();
+    
+    socket.emit('join-room', code, (response) => {
+        if (response.success) {
+            currentRoomCode = response.roomCode;
+            playerNumber = response.playerNumber;
+            isMultiplayer = true;
+            
+            showMessage('Joined successfully!', 'success');
+            setTimeout(() => {
+                document.getElementById('roomScreen').style.display = 'none';
+                document.getElementById('mainApp').classList.remove('hidden');
+            }, 1000);
+        } else {
+            showMessage(response.error, 'error');
+        }
+    });
+}
+
+function cancelRoom() {
+    resetToRoomScreen();
+}
+
+function backToAuth() {
+    document.getElementById('roomScreen').style.display = 'none';
+    document.getElementById('authScreen').classList.remove('hidden');
+}
+
+function resetToRoomScreen() {
+    isMultiplayer = false;
+    currentRoomCode = null;
+    playerNumber = null;
+    
+    document.getElementById('waitingScreen').style.display = 'none';
+    document.getElementById('mainApp').classList.add('hidden');
+    document.getElementById('roomScreen').style.display = 'block';
+    
+    resetGame();
+}
+
+function showMessage(text, type) {
+    const msg = document.getElementById('roomMessage');
+    msg.textContent = text;
+    msg.style.display = 'block';
+    
+    if (type === 'error') {
+        msg.style.background = '#fef2f2';
+        msg.style.border = '1px solid #fecaca';
+        msg.style.color = '#991b1b';
+    } else {
+        msg.style.background = '#f0fdf4';
+        msg.style.border = '1px solid #bbf7d0';
+        msg.style.color = '#166534';
+    }
+}
+
+// Override continueAsGuest to show multiplayer option
+const originalContinueAsGuest = continueAsGuest;
+continueAsGuest = function() {
+    isGuest = true;
+    loadGuestData();
+    document.getElementById('authScreen').classList.add('hidden');
+    document.getElementById('roomScreen').style.display = 'block';
+    initializeSocket();
+};
+
+// Override the login functions to show multiplayer screen
+const originalHandleLogin = handleLogin;
+handleLogin = async function() {
+    const email = document.getElementById('loginEmail').value.trim();
+    const password = document.getElementById('loginPassword').value;
+    
+    if (!email || !password) {
+        showLoginMessage('Please enter email and password');
+        return;
+    }
+    
+    const user = window.users.find(u => u.email === email && u.password === password);
+    
+    if (user) {
+        currentUser = user;
+        localStorage.setItem('currentUser', JSON.stringify(user));
+        loadUserData();
+        document.getElementById('authScreen').classList.add('hidden');
+        document.getElementById('roomScreen').style.display = 'block';
+        initializeSocket();
+    } else {
+        showLoginMessage('Invalid email or password');
+    }
+};
+
+const originalHandleSignup = handleSignup;
+handleSignup = async function() {
+    const email = document.getElementById('signupEmail').value.trim();
+    const password = document.getElementById('signupPassword').value;
+    const confirmPassword = document.getElementById('signupPasswordConfirm').value;
+    
+    if (!email || !password) {
+        showSignupMessage('Please fill in all fields');
+        return;
+    }
+    
+    if (password !== confirmPassword) {
+        showSignupMessage('Passwords do not match');
+        return;
+    }
+    
+    if (password.length < 6) {
+        showSignupMessage('Password must be at least 6 characters');
+        return;
+    }
+    
+    const existingUser = window.users.find(u => u.email === email);
+    if (existingUser) {
+        showSignupMessage('Email already registered');
+        return;
+    }
+    
+    const newUser = {
+        id: Date.now().toString(),
+        email: email,
+        password: password,
+        roster: [],
+        savedPresets: {}
+    };
+    
+    window.users.push(newUser);
+    localStorage.setItem('users', JSON.stringify(window.users));
+    
+    currentUser = newUser;
+    localStorage.setItem('currentUser', JSON.stringify(newUser));
+    loadUserData();
+    
+    document.getElementById('authScreen').classList.add('hidden');
+    document.getElementById('roomScreen').style.display = 'block';
+    initializeSocket();
+};
+
+// Sync roster when adding/removing people
+const originalAddPerson = addPerson;
+addPerson = function() {
+    originalAddPerson();
+    if (isMultiplayer && currentRoomCode) {
+        socket.emit('sync-roster', { roomCode: currentRoomCode, roster: window.roster });
+    }
+};
+
+const originalDeletePerson = deletePerson;
+deletePerson = function(index) {
+    originalDeletePerson(index);
+    if (isMultiplayer && currentRoomCode) {
+        socket.emit('sync-roster', { roomCode: currentRoomCode, roster: window.roster });
+    }
+};
+
+// Sync selected people
+const originalToggleSelect = toggleSelect;
+toggleSelect = function(index) {
+    originalToggleSelect(index);
+    if (isMultiplayer && currentRoomCode) {
+        socket.emit('sync-selected', { roomCode: currentRoomCode, selectedForGame: window.selectedForGame });
+    }
+};
+
+// Override startGame for multiplayer
+const originalStartGame = startGame;
+startGame = function() {
+    if (isMultiplayer && currentRoomCode) {
+        socket.emit('start-game', { roomCode: currentRoomCode });
+        startGameMultiplayer();
+    } else {
+        originalStartGame();
+    }
+};
+
+function startGameMultiplayer() {
+    if (selectedForGame.length < 2) {
+        alert('Select at least 2 people (green highlight) before starting.');
+        return;
+    }
+    
+    gameRoster = selectedForGame.map(i => ({...roster[i]}));
+    eliminated = {1: new Set(), 2: new Set()};
+    currentPicker = playerNumber;
+    currentTurn = 1;
+    secret1 = null;
+    secret2 = null;
+    selectedCard = null;
+    guessMode = false;
+    
+    document.getElementById('rosterBox').classList.add('hidden');
+    document.getElementById('pickBox').classList.remove('hidden');
+    document.getElementById('gameBox').classList.add('hidden');
+    renderPick();
+}
+
+// Override pickCard for multiplayer
+const originalPickCard = pickCard;
+pickCard = function(index) {
+    selectedCard = index;
+    renderPick();
+};
+
+// Override confirmPick for multiplayer
+const originalConfirmPick = confirmPick;
+confirmPick = function() {
+    if (selectedCard === null) {
+        alert('Select a card first!');
+        return;
+    }
+    
+    if (currentPicker === 1) {
+        secret1 = selectedCard;
+    } else {
+        secret2 = selectedCard;
+    }
+    
+    if (isMultiplayer && currentRoomCode) {
+        socket.emit('pick-secret', { 
+            roomCode: currentRoomCode, 
+            playerNumber: currentPicker, 
+            secretIndex: selectedCard 
+        });
+    }
+    
+    checkBothSecretsPicked();
+};
+
+function checkBothSecretsPicked() {
+    if (secret1 !== null && secret2 !== null) {
+        document.getElementById('pickBox').classList.add('hidden');
+        document.getElementById('gameBox').classList.remove('hidden');
+        renderGame();
+    } else {
+        if (isMultiplayer) {
+            alert(`Waiting for ${currentPicker === 1 ? 'Player 2' : 'Player 1'} to pick...`);
+        } else {
+            waitingForNextPicker = true;
+            renderPick();
+        }
+    }
+}
+
+// Override eliminate for multiplayer
+const originalEliminate = eliminate;
+eliminate = function(index) {
+    if (!isMultiplayer || currentTurn === playerNumber) {
+        eliminated[currentTurn].add(index);
+        renderGame();
+        
+        if (isMultiplayer && currentRoomCode) {
+            socket.emit('sync-eliminated', { 
+                roomCode: currentRoomCode, 
+                playerNumber: currentTurn, 
+                eliminated: Array.from(eliminated[currentTurn]) 
+            });
+        }
+    }
+};
+
+// Override endTurn for multiplayer
+const originalEndTurn = endTurn;
+endTurn = function() {
+    if (isMultiplayer && currentRoomCode) {
+        socket.emit('end-turn', { roomCode: currentRoomCode });
+    }
+    currentTurn = currentTurn === 1 ? 2 : 1;
+    guessMode = false;
+    renderGame();
+};
+
+// Override makeGuess for multiplayer
+const originalMakeGuess = makeGuess;
+makeGuess = function(index) {
+    if (isMultiplayer && currentRoomCode) {
+        socket.emit('make-guess', { 
+            roomCode: currentRoomCode, 
+            playerNumber: currentTurn, 
+            guessIndex: index 
+        });
+    }
+    handleGuess(currentTurn, index);
+};
+
+function handleOpponentGuess(guesser, guessIndex) {
+    handleGuess(guesser, guessIndex);
+}
+
+function handleGuess(guesser, guessIndex) {
+    const opponentSecret = guesser === 1 ? secret2 : secret1;
+    const winner = guesser;
+    
+    if (guessIndex === opponentSecret) {
+        if (isMultiplayer && currentRoomCode && guesser === playerNumber) {
+            socket.emit('player-won', { roomCode: currentRoomCode, winner });
+        }
+        showWinner(winner);
+    } else {
+        alert(`Wrong guess! Player ${guesser} loses!`);
+        const actualWinner = guesser === 1 ? 2 : 1;
+        if (isMultiplayer && currentRoomCode && guesser === playerNumber) {
+            socket.emit('player-won', { roomCode: currentRoomCode, winner: actualWinner });
+        }
+        showWinner(actualWinner);
+    }
+}
+
+// Override resetGame for multiplayer
+const originalResetGame = resetGame;
+resetGame = function() {
+    if (isMultiplayer && currentRoomCode) {
+        socket.emit('reset-game', { roomCode: currentRoomCode });
+    }
+    
+    selectedForGame = [];
+    gameRoster = [];
+    currentPicker = isMultiplayer ? playerNumber : 1;
+    currentTurn = 1;
+    selectedCard = null;
+    secret1 = null;
+    secret2 = null;
+    eliminated = {1: new Set(), 2: new Set()};
+    waitingForNextPicker = false;
+    guessMode = false;
+    
+    document.querySelectorAll('.confetti').forEach(c => c.remove());
+    
+    document.getElementById('rosterBox').classList.remove('hidden');
+    document.getElementById('pickBox').classList.add('hidden');
+    document.getElementById('gameBox').classList.add('hidden');
+    document.getElementById('winScreen').style.display='none';
+    
+    renderRoster();
+};
+
+// Add loader CSS
+const style = document.createElement('style');
+style.textContent = `
+.loader {
+    border: 4px solid rgba(255,255,255,0.3);
+    border-top: 4px solid white;
+    border-radius: 50%;
+    width: 40px;
+    height: 40px;
+    animation: spin 1s linear infinite;
+}
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+`;
+document.head.appendChild(style);
+</script>
+
+</body>
+</html>
