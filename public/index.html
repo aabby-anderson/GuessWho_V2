@@ -1630,13 +1630,29 @@ function renderBoard(){
     });
 }
 
-function startGuessMode(){ guessMode=true; alert('Tap the character you want to guess!'); }
+function startGuessMode(){ 
+    guessMode=true; 
+    // Update the secret display to show guess mode message
+    const secretDisplay = document.getElementById('secretDisplay');
+    if (secretDisplay) {
+        secretDisplay.textContent = '👆 Click a person to make your guess!';
+        secretDisplay.style.background = 'linear-gradient(135deg, #fbbf24 0%, #f59e0b 100%)';
+        secretDisplay.style.color = '#78350f';
+        secretDisplay.style.borderColor = 'rgba(251, 191, 36, 0.5)';
+        secretDisplay.style.animation = 'pulse 2s ease-in-out infinite';
+    }
+}
 
 function checkGuess(name){ 
     guessMode=false; 
     const opp=currentTurn===1?secret2:secret1; 
     if(name===opp.name){ 
-        win(currentTurn); 
+        // Use showWinner which handles socket emission
+        if (isSocketMultiplayer) {
+            showWinner(currentTurn);
+        } else {
+            win(currentTurn);
+        }
     } else { 
         wrongScreen.style.display='flex';
     } 
@@ -1644,6 +1660,7 @@ function checkGuess(name){
 
 function continueAfterWrong() {
     wrongScreen.style.display='none';
+    guessMode = false; // Make sure guess mode is off
     endTurn();
 }
 
@@ -2013,7 +2030,7 @@ function initSocketIO() {
     });
     
     socket.on('game-won', (data) => {
-        showWinner(data.winner);
+        win(data.winner);
     });
     
     socket.on('game-reset', () => {
@@ -2044,11 +2061,24 @@ function handleRemoteGuess(guesserNum, guessIndex) {
     const opponentSecret = guesserNum === 1 ? secret2 : secret1;
     
     if (guessIndex === opponentSecret) {
-        showWinner(guesserNum);
+        win(guesserNum);
     } else {
         const actualWinner = guesserNum === 1 ? 2 : 1;
-        showWinner(actualWinner);
+        win(actualWinner);
     }
+}
+
+// Create showWinner function that handles both local and socket multiplayer
+function showWinner(playerNum) {
+    // Emit win to socket if in multiplayer mode
+    if (isSocketMultiplayer && socket && socketRoomCode) {
+        socket.emit('game-won', { 
+            roomCode: socketRoomCode, 
+            winner: playerNum 
+        });
+    }
+    // Show the win screen locally
+    win(playerNum);
 }
 
 // Override startGame to add Socket.IO support
@@ -2252,13 +2282,25 @@ if (originalRenderBoard) {
             endTurnBtn.textContent = isSocketMultiplayer ? 'End Turn' : 'Pass Phone';
         }
         
-        // Show different message based on turn
-        if (isSocketMultiplayer && !isMyTurn) {
+        // Show different message based on turn and guess mode
+        if (guessMode) {
+            secretDisplay.textContent = '👆 Click a person to make your guess!';
+            secretDisplay.style.background = 'linear-gradient(135deg, #fbbf24 0%, #f59e0b 100%)';
+            secretDisplay.style.color = '#78350f';
+            secretDisplay.style.borderColor = 'rgba(251, 191, 36, 0.5)';
+            secretDisplay.style.opacity = '1';
+        } else if (isSocketMultiplayer && !isMyTurn) {
             secretDisplay.textContent=`Your Secret: ${mySecret.name} (Waiting...)`;
             secretDisplay.style.opacity = '0.6';
+            secretDisplay.style.background = 'rgba(16, 185, 129, 0.1)';
+            secretDisplay.style.color = '#10b981';
+            secretDisplay.style.borderColor = 'rgba(16, 185, 129, 0.3)';
         } else {
             secretDisplay.textContent=`Your Secret: ${mySecret.name}`;
             secretDisplay.style.opacity = '1';
+            secretDisplay.style.background = 'rgba(16, 185, 129, 0.1)';
+            secretDisplay.style.color = '#10b981';
+            secretDisplay.style.borderColor = 'rgba(16, 185, 129, 0.3)';
         }
         
         gameRoster.forEach(p=>{
