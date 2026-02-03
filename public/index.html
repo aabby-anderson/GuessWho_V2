@@ -21,6 +21,8 @@ button::before { content: ''; position: absolute; top: 50%; left: 50%; width: 0;
 button:hover::before { width: 300px; height: 300px; }
 button:hover { transform: translateY(-3px) scale(1.02); box-shadow: 0 10px 30px rgba(102, 126, 234, 0.6), 0 0 0 1px rgba(255,255,255,0.2) inset; }
 button:active { transform: translateY(-1px) scale(0.98); }
+button:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+button:disabled:hover { transform: none; box-shadow: 0 6px 20px rgba(102, 126, 234, 0.4), 0 0 0 1px rgba(255,255,255,0.1) inset; }
 input { padding:14px 18px; border:2px solid #e5e7eb; border-radius:14px; font-size:16px; transition: all 0.3s ease; background: rgba(255,255,255,0.9); }
 input:focus { outline: none; border-color: #667eea; box-shadow: 0 0 0 4px rgba(102, 126, 234, 0.1); background: white; }
 input.full-width { width: 100%; box-sizing: border-box; margin-bottom: 16px; }
@@ -108,2311 +110,746 @@ button.guest:hover{box-shadow: 0 10px 30px rgba(139, 92, 246, 0.6), 0 0 0 1px rg
     <input id="nameInput" placeholder="Name" />
     <input id="imgInput" type="file" accept="image/*" style="display:none;" />
     <label for="imgInput" style="padding:10px 14px;border:2px dashed #667eea;border-radius:12px;cursor:pointer;background:rgba(102,126,234,0.1);color:#667eea;font-weight:600;font-size:14px;display:inline-block;transition:all 0.3s ease;">
-      📁 Choose Image
+      📷 Choose Image
     </label>
-    <div id="dropZone" style="padding:20px;border:3px dashed #667eea;border-radius:12px;text-align:center;color:#667eea;font-weight:600;cursor:pointer;background:rgba(102,126,234,0.05);transition:all 0.3s ease;min-width:200px;">
-      🖼️ Or Drag & Drop Image Here
-    </div>
-    <button onclick="addPerson()">Add Person</button>
+    <button onclick="addCharacter()">Add to Roster</button>
   </div>
   <div id="rosterGrid" class="grid"></div>
-  
-  <div style="margin-top:20px;border-top:2px solid #e5e7eb;padding-top:20px;">
-    <h3 style="margin-bottom:10px;">Saved Rosters</h3>
-    <div class="controls">
-      <input id="presetNameInput" placeholder="Roster Name" style="flex:1;max-width:300px;" />
-      <button onclick="savePreset().catch(e => console.error(e))" class="secondary">Save Current Selection</button>
-    </div>
-    <div id="savedRosterDisplay" style="margin-top:15px;"></div>
-  </div>
-  
   <div class="controls">
-  <button onclick="beginSetup()">Start Game (Same Phone)</button>
-  <button class="guest" onclick="showSocketMultiplayerModal()" title="Play on two different devices using server">Play on Two Screens</button>
-</div>
+    <button onclick="beginSetup()">Start Game (Same Phone)</button>
+    <button class="guest" onclick="showSocketMultiplayerModal()" title="Play on two different devices using server">Play on Two Screens</button>
+  </div>
 </div>
 
-<div id="pickBox" class="box hidden">
-  <h3 id="pickTitle"></h3>
-  <div id="pickGrid" class="grid"></div>
-  <div class="controls"><button onclick="confirmPick()">Confirm Selection</button></div>
+<div id="setupBox" class="box hidden">
+  <h2>Game Setup</h2>
+  <div id="secretDisplay" class="secret-display"></div>
+  <p style="text-align:center;font-size:15px;color:#6b7280;margin-bottom:18px;">
+    <span id="setupPlayerLabel"></span> secretly pick one person from below
+  </p>
+  <div id="setupGrid" class="grid"></div>
+  <div class="controls">
+    <button id="confirmBtn" onclick="confirmSecret()">Confirm Selection</button>
+  </div>
 </div>
 
 <div id="gameBox" class="box hidden">
-  <h2 id="turnTitle" style="background:linear-gradient(135deg, #667eea 0%, #764ba2 100%);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;padding:12px;border-radius:14px;margin-bottom:16px;text-shadow:none;"></h2>
-  <div id="secretDisplay" class="secret-display"></div>
+  <h2><span id="turnDisplay">Player 1's Turn</span></h2>
+  <div id="gameSecretDisplay" class="secret-display"></div>
+  <div id="gameGrid" class="grid"></div>
   <div class="controls">
-    <button class="guess" onclick="startGuessMode()">Make a Guess</button>
-    <button class="secondary" onclick="resetEliminations()">Reset Eliminations</button>
-    <button class="secondary" onclick="endTurn()">Pass Phone</button>
+    <button id="passBtn" onclick="passPhone()">Pass Phone</button>
+    <button class="guess" onclick="makeGuess()">Make a Guess</button>
+    <button class="danger" onclick="restartGame()">Restart Game</button>
   </div>
-  <div id="boardGrid" class="grid"></div>
 </div>
 
-<div id="passScreen" class="pass-screen"><h1 id="passText"></h1><button onclick="continueAfterPass()">I'm Ready</button></div>
-<div id="wrongScreen" class="pass-screen"><h1>❌ Wrong Guess!</h1><button onclick="continueAfterWrong()">Continue</button></div>
-<div id="deleteConfirm" class="pass-screen"><h1 id="deleteText"></h1><div style="display:flex;gap:12px;"><button onclick="confirmDelete()" style="background:#dc2626;">Yes, Delete</button><button onclick="cancelDelete()" style="background:#6b7280;">Cancel</button></div></div>
-<div id="deletePresetConfirm" class="pass-screen"><h1 id="deletePresetText"></h1><div style="display:flex;gap:12px;"><button onclick="confirmDeletePreset()" style="background:#dc2626;">Yes, Delete</button><button onclick="cancelDeletePreset()" style="background:#6b7280;">Cancel</button></div></div>
-<div id="notEnoughScreen" class="pass-screen"><h1>⚠️ Not Enough Players</h1><p style="font-size:18px;margin:10px 0;">Select at least 2 people by clicking on them (they will get a green outline)</p><button onclick="closeNotEnough()">OK</button></div>
-<div id="winScreen" class="win-screen"><h1 id="winText"></h1><button onclick="resetGame()">Play Again</button></div>
+</div>
 
+<!-- PASS PHONE SCREEN -->
+<div id="passScreen" class="pass-screen">
+  <h1>Pass Phone to <span id="passToPlayer">Player 2</span></h1>
+  <button onclick="continueAfterPass()">I'm <span id="passToPlayer2">Player 2</span> – Continue</button>
+</div>
 
+<!-- WIN SCREEN -->
+<div id="winScreen" class="win-screen">
+  <h1 id="winMessage">Player 1 Wins!</h1>
+  <p style="font-size:18px;margin-bottom:20px;position:relative;z-index:1;opacity:0.9;" id="winDetails">They guessed correctly!</p>
+  <button onclick="restartGame()">Play Again</button>
+</div>
 
-<!-- Online (Two-Screen) Multiplayer Modal -->
-<div id="onlineModal" class="pass-screen" style="display:none; z-index:1200;">
-  <h1 style="margin-bottom:10px;">🌐 Two-Screen Mode</h1>
-  <p style="max-width:760px; padding:0 18px; font-size:15px; color:#cbd5e1; position:relative; z-index:1;">
-    Create a game on one device, then join with a <strong>6‑digit code</strong> on the other device.
-  </p>
-
-  <div style="width:min(900px,92vw); background:rgba(255,255,255,0.06); border:1px solid rgba(255,255,255,0.12);
-              border-radius:18px; padding:16px; margin-top:16px; position:relative; z-index:1;">
-    <div style="display:flex; gap:12px; flex-wrap:wrap; align-items:center; justify-content:space-between;">
-      <!-- Server URL hidden (hardcoded) -->
-      <div style="display:flex; gap:10px; flex-wrap:wrap; align-items:flex-end; justify-content:flex-end;">
-        <button class="secondary" style="min-width:140px;" onclick="closeOnlineModal()">Close</button>
-        <button class="danger" style="min-width:140px;" onclick="disconnectOnline()">Disconnect</button>
-      </div>
+<!-- Socket.IO Multiplayer Modal -->
+<div id="socketMultiplayerModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.8);z-index:1000;align-items:center;justify-content:center;">
+  <div style="background:rgba(255,255,255,0.98);border-radius:24px;padding:40px;max-width:500px;width:90%;max-height:90vh;overflow-y:auto;position:relative;">
+    <button onclick="closeSocketModal()" style="position:absolute;top:16px;right:16px;min-width:auto;padding:8px 12px;font-size:20px;background:transparent;color:#6b7280;box-shadow:none;" title="Close">✕</button>
+    
+    <h2 style="color:#1f2937;margin-bottom:12px;">🎮 Two Screen Mode</h2>
+    <p style="color:#6b7280;font-size:14px;margin-bottom:24px;">Play on separate devices without passing the phone!</p>
+    
+    <div class="tab-buttons">
+      <button id="createRoomTab" class="active" onclick="switchSocketTab('create')">Create Room</button>
+      <button id="joinRoomTab" onclick="switchSocketTab('join')">Join Room</button>
     </div>
-
-    <div class="tab-buttons" style="background:rgba(15,23,42,0.25); margin-top:14px;">
-      <button id="hostTab" class="active" onclick="showOnlineTab('host')">Host</button>
-      <button id="joinTab" onclick="showOnlineTab('join')">Join</button>
-    </div>
-
-    <!-- HOST -->
-    <div id="onlineHostPane">
-      <div style="display:flex; gap:10px; flex-wrap:wrap; align-items:center; margin-top:12px;">
-        <button class="guest" style="min-width:200px;" onclick="hostCreateGame()">Create Game</button>
-        <div style="flex:1; min-width:220px;">
-          <div style="font-size:12px; color:#cbd5e1; margin-bottom:6px;">Game Code</div>
-          <div id="hostGameCode" style="font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
-               font-size:22px; letter-spacing:2px; background:rgba(15,23,42,0.35); border:1px solid rgba(255,255,255,0.18);
-               border-radius:14px; padding:10px 12px; color:#a7f3d0;">
-            — — — — — —
-          </div>
+    
+    <div id="createRoomSection">
+      <div style="background:#ecfdf5;border:2px solid #10b981;border-radius:14px;padding:16px;margin-bottom:20px;color:#065f46;">
+        <div style="font-weight:700;margin-bottom:8px;">📋 How it works:</div>
+        <div style="font-size:14px;line-height:1.6;">
+          1. Click "Create Room" to generate a code<br>
+          2. Share the code with Player 2<br>
+          3. Player 2 joins using the code<br>
+          4. Start playing on separate screens!
         </div>
       </div>
-
-      <div style="margin-top:10px; font-size:13px; color:#cbd5e1;">
-        1) Click <strong>Create Game</strong><br>
-        2) Share the code with the other player<br>
-        3) Wait for “Joiner connected”<br>
-        4) Select people (green outline) and click <strong>Start Online Game</strong>
-      </div>
-
-      <div style="margin-top:14px; display:flex; gap:10px; flex-wrap:wrap; justify-content:center;">
-        <button class="guess" style="min-width:260px;" onclick="startOnlineGameAsHost()">Start Online Game</button>
-      </div>
-
-      <div style="margin-top:12px; text-align:center;">
-        <div id="hostStatus" style="color:#cbd5e1;">Status: Not connected</div>
-      </div>
+      <button onclick="createSocketRoom()" style="width:100%;">Create Room</button>
     </div>
-
-    <!-- JOIN -->
-    <div id="onlineJoinPane" class="hidden">
-      <div style="display:flex; gap:10px; flex-wrap:wrap; align-items:center; margin-top:12px;">
-        <input id="joinCodeInput" type="text" inputmode="numeric" maxlength="6" placeholder="Enter 6-digit code"
-               style="flex:1; min-width:220px; border-radius:14px; padding:10px 12px; border:1px solid rgba(255,255,255,0.18);
-                      background:rgba(15,23,42,0.35); color:white; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
-                      font-size:18px; letter-spacing:2px;" />
-        <button class="guest" style="min-width:200px;" onclick="joinGame()">Join Game</button>
-      </div>
-
-      <div style="margin-top:10px; font-size:13px; color:#cbd5e1;">
-        1) Paste the server URL if needed<br>
-        2) Enter the code from the host<br>
-        3) Click <strong>Join Game</strong> and wait for the pick screen
-      </div>
-
-      <div style="margin-top:12px; text-align:center;">
-        <div id="joinStatus" style="color:#cbd5e1;">Status: Not connected</div>
-      </div>
-    </div>
-
-    <div style="margin-top:14px; display:flex; justify-content:space-between; align-items:center; gap:10px; flex-wrap:wrap;">
-      <div id="onlineConnStatus" style="color:#a7f3d0; font-weight:700;">Status: Not connected</div>
-      <div style="font-size:12px; color:#94a3b8;">
-        Tip: both devices should be on the same Wi‑Fi for easiest testing.
-      </div>
+    
+    <div id="joinRoomSection" class="hidden">
+      <p style="color:#6b7280;font-size:14px;margin-bottom:16px;">Enter the 6-character room code from Player 1:</p>
+      <input id="socketRoomInput" type="text" class="full-width" placeholder="Enter room code" maxlength="6" style="text-transform:uppercase;text-align:center;font-size:24px;font-weight:700;letter-spacing:4px;" />
+      <button onclick="joinSocketRoom()" style="width:100%;">Join Room</button>
     </div>
   </div>
-</div>
-
-<!-- Online waiting overlay -->
-
-<div id="onlineWait" class="pass-screen" style="display:none; z-index:1100;">
-  <h1 id="onlineWaitText">Waiting…</h1>
-  <p id="onlineWaitSub" style="color:#cbd5e1; font-size:16px; max-width:700px; padding:0 18px;"></p>
-  <button id="onlineWaitBtn" class="guest" style="display:none;" onclick="hideOnlineWait()">OK</button>
-</div>
-
 </div>
 
 <script>
-// Authentication state
+// === AUTHENTICATION & STORAGE ===
+const API_URL = 'https://customguesswho.bsite.net/api';
 let currentUser = null;
 let isGuest = false;
 
-// Prefer IndexedDB (much larger quota than localStorage). Fallback to localStorage if unavailable.
-let useLocalStorage = false;
-let idbDb = null;
-
-// ---------- IndexedDB KV Store ----------
-function openIdb() {
-  return new Promise((resolve, reject) => {
-    if (!("indexedDB" in window)) return reject(new Error("indexedDB not supported"));
-    const req = indexedDB.open("guesswho_kv_v1", 1);
-    req.onupgradeneeded = () => {
-      const db = req.result;
-      if (!db.objectStoreNames.contains("kv")) {
-        db.createObjectStore("kv", { keyPath: "key" });
-      }
-    };
-    req.onsuccess = () => resolve(req.result);
-    req.onerror = () => reject(req.error || new Error("Failed to open IndexedDB"));
-  });
-}
-
-async function checkStorageAvailability() {
-  try {
-    idbDb = await openIdb();
-    useLocalStorage = false;
-  } catch (err) {
-    console.log("IndexedDB not available, using localStorage instead:", err?.message || err);
-    useLocalStorage = true;
-  }
-}
-
-// Initialize storage check
-(async function() {
-  await checkStorageAvailability();
-})();
-
-function idbGet(key) {
-  return new Promise((resolve, reject) => {
-    const tx = idbDb.transaction("kv", "readonly");
-    const store = tx.objectStore("kv");
-    const req = store.get(key);
-    req.onsuccess = () => resolve(req.result ? req.result.value : null);
-    req.onerror = () => reject(req.error || new Error("IDB get failed"));
-  });
-}
-function idbSet(key, value) {
-  return new Promise((resolve, reject) => {
-    const tx = idbDb.transaction("kv", "readwrite");
-    const store = tx.objectStore("kv");
-    const req = store.put({ key, value });
-    req.onsuccess = () => resolve(true);
-    req.onerror = () => reject(req.error || new Error("IDB set failed"));
-  });
-}
-function idbDelete(key) {
-  return new Promise((resolve, reject) => {
-    const tx = idbDb.transaction("kv", "readwrite");
-    const store = tx.objectStore("kv");
-    const req = store.delete(key);
-    req.onsuccess = () => resolve(true);
-    req.onerror = () => reject(req.error || new Error("IDB delete failed"));
-  });
-}
-
-// ---------- Safer JSON + IDs ----------
-function safeJsonParse(str, fallback) {
-  try { return JSON.parse(str); } catch { return fallback; }
-}
-function makeId() {
-  if (window.crypto?.randomUUID) return crypto.randomUUID();
-  return `id_${Date.now()}_${Math.random().toString(16).slice(2)}`;
-}
-
-// ---------- Image Compression ----------
-async function compressImageFile(file, maxDim = 256, quality = 0.72) {
-  let bitmap;
-  try {
-    bitmap = await createImageBitmap(file);
-  } catch {
-    const dataUrl = await new Promise((resolve, reject) => {
-      const r = new FileReader();
-      r.onload = () => resolve(r.result);
-      r.onerror = reject;
-      r.readAsDataURL(file);
-    });
-    const img = await new Promise((resolve, reject) => {
-      const im = new Image();
-      im.onload = () => resolve(im);
-      im.onerror = reject;
-      im.src = dataUrl;
-    });
-    bitmap = img;
-  }
-
-  const w = bitmap.width;
-  const h = bitmap.height;
-  const scale = Math.min(1, maxDim / Math.max(w, h));
-  const outW = Math.max(1, Math.round(w * scale));
-  const outH = Math.max(1, Math.round(h * scale));
-
-  const canvas = document.createElement("canvas");
-  canvas.width = outW;
-  canvas.height = outH;
-  const ctx = canvas.getContext("2d");
-  ctx.drawImage(bitmap, 0, 0, outW, outH);
-
-  let mime = "image/webp";
-  let dataUrl = canvas.toDataURL(mime, quality);
-  if (!dataUrl.startsWith("data:image/webp")) {
-    mime = "image/jpeg";
-    dataUrl = canvas.toDataURL(mime, quality);
-  }
-  return dataUrl;
-}
-
-// Storage wrapper functions (used throughout the app)
-async function storageGet(key) {
-  if (useLocalStorage) {
-    const value = localStorage.getItem(key);
-    if (value === null) throw new Error("Key not found");
-    return { key, value };
-  } else {
-    const value = await idbGet(key);
-    if (value === null) throw new Error("Key not found");
-    return { key, value };
-  }
-}
-
-async function storageSet(key, value) {
-  if (useLocalStorage) {
-    localStorage.setItem(key, value);
-    return { key, value };
-  } else {
-    await idbSet(key, value);
-    return { key, value };
-  }
-}
-
-async function storageDelete(key) {
-  if (useLocalStorage) {
-    localStorage.removeItem(key);
-    return { key, deleted: true };
-  } else {
-    await idbDelete(key);
-    return { key, deleted: true };
-  }
-}
-
-// Drag and drop functionality
-const dropZone = document.getElementById('dropZone');
-const imgInput = document.getElementById('imgInput');
-
-dropZone.addEventListener('dragover', (e) => {
-    e.preventDefault();
-    dropZone.style.borderColor = '#764ba2';
-    dropZone.style.background = 'rgba(102,126,234,0.15)';
-    dropZone.style.transform = 'scale(1.02)';
-});
-
-dropZone.addEventListener('dragleave', (e) => {
-    e.preventDefault();
-    dropZone.style.borderColor = '#667eea';
-    dropZone.style.background = 'rgba(102,126,234,0.05)';
-    dropZone.style.transform = 'scale(1)';
-});
-
-dropZone.addEventListener('drop', (e) => {
-    e.preventDefault();
-    dropZone.style.borderColor = '#667eea';
-    dropZone.style.background = 'rgba(102,126,234,0.05)';
-    dropZone.style.transform = 'scale(1)';
-    
-    const files = e.dataTransfer.files;
-    if (files.length > 0 && files[0].type.startsWith('image/')) {
-        imgInput.files = files;
-        dropZone.textContent = '✅ Image Selected: ' + files[0].name;
-        dropZone.style.color = '#10b981';
-    }
-});
-
-dropZone.addEventListener('click', () => {
-    imgInput.click();
-});
-
-imgInput.addEventListener('change', () => {
-    if (imgInput.files.length > 0) {
-        dropZone.textContent = '✅ Image Selected: ' + imgInput.files[0].name;
-        dropZone.style.color = '#10b981';
-    }
-});
-
-// Show/hide auth tabs
 function showTab(tab) {
-    // Clear any messages
-    document.getElementById('loginMessage').style.display = 'none';
-    document.getElementById('signupMessage').style.display = 'none';
-    
-    if (tab === 'login') {
-        document.getElementById('loginTab').classList.add('active');
-        document.getElementById('signupTab').classList.remove('active');
-        document.getElementById('loginForm').classList.remove('hidden');
-        document.getElementById('signupForm').classList.add('hidden');
-    } else {
-        document.getElementById('signupTab').classList.add('active');
-        document.getElementById('loginTab').classList.remove('active');
-        document.getElementById('signupForm').classList.remove('hidden');
-        document.getElementById('loginForm').classList.add('hidden');
-    }
+  document.getElementById('loginForm').classList.toggle('hidden', tab !== 'login');
+  document.getElementById('signupForm').classList.toggle('hidden', tab !== 'signup');
+  document.getElementById('loginTab').classList.toggle('active', tab === 'login');
+  document.getElementById('signupTab').classList.toggle('active', tab === 'signup');
 }
 
-// Handle login
 async function handleLogin() {
-    const email = document.getElementById('loginEmail').value.trim();
-    const password = document.getElementById('loginPassword').value;
-    
-    // Clear any previous messages
-    document.getElementById('loginMessage').style.display = 'none';
-    
-    if (!email || !password) {
-        const loginMessage = document.getElementById('loginMessage');
-        loginMessage.textContent = 'Please enter both email and password';
-        loginMessage.style.display = 'block';
-        return;
-    }
-    
-    try {
-        // Check if user exists
-        const userKey = `user_${email}`;
-        let userData;
-        try {
-            userData = await storageGet(userKey);
-        } catch (error) {
-            userData = null;
-        }
-        
-        if (!userData) {
-            const loginMessage = document.getElementById('loginMessage');
-            loginMessage.textContent = 'Account not found. Please sign up first.';
-            loginMessage.style.display = 'block';
-            return;
-        }
-        
-        const user = JSON.parse(userData.value);
-        
-        if (user.password !== password) {
-            const loginMessage = document.getElementById('loginMessage');
-            loginMessage.textContent = 'Incorrect password. Please try again.';
-            loginMessage.style.display = 'block';
-            return;
-        }
-        
-        // Login successful
-        currentUser = email;
-        isGuest = false;
-        await loadUserData();
-        showMainApp();
-    } catch (error) {
-        console.error('Login error:', error);
-        const loginMessage = document.getElementById('loginMessage');
-        loginMessage.textContent = 'Login failed. Please try again.';
-        loginMessage.style.display = 'block';
-    }
-}
-
-// Handle signup
-async function handleSignup() {
-    const email = document.getElementById('signupEmail').value.trim();
-    const password = document.getElementById('signupPassword').value;
-    const confirmPassword = document.getElementById('signupPasswordConfirm').value;
-    
-    // Clear any previous messages
-    document.getElementById('signupMessage').style.display = 'none';
-    
-    if (!email || !password || !confirmPassword) {
-        const signupMessage = document.getElementById('signupMessage');
-        signupMessage.textContent = 'Please fill in all fields';
-        signupMessage.style.display = 'block';
-        return;
-    }
-    
-    if (!email.includes('@')) {
-        const signupMessage = document.getElementById('signupMessage');
-        signupMessage.textContent = 'Please enter a valid email address';
-        signupMessage.style.display = 'block';
-        return;
-    }
-    
-    if (password.length < 6) {
-        const signupMessage = document.getElementById('signupMessage');
-        signupMessage.textContent = 'Password must be at least 6 characters';
-        signupMessage.style.display = 'block';
-        return;
-    }
-    
-    if (password !== confirmPassword) {
-        const signupMessage = document.getElementById('signupMessage');
-        signupMessage.textContent = 'Passwords do not match. Please try again.';
-        signupMessage.style.display = 'block';
-        return;
-    }
-    
-    const userKey = `user_${email}`;
-    console.log('Checking if user exists:', userKey);
-    
-    // First, check if user already exists
-    try {
-        const existingUser = await storageGet(userKey);
-        console.log('Found existing user:', existingUser);
-        
-        // If we got here without an error, the user exists
-        showTab('login');
-        document.getElementById('loginEmail').value = email;
-        
-        // Show visible error message
-        const loginMessage = document.getElementById('loginMessage');
-        loginMessage.textContent = 'An account with this email already exists. Please login with your password.';
-        loginMessage.style.display = 'block';
-        
-        return;
-        
-    } catch (checkError) {
-        // User doesn't exist - this is good, we can proceed with signup
-        console.log('No existing user found (expected):', checkError.message);
-    }
-    
-    // Now create the new user
-    try {
-        const newUser = {
-            email: email,
-            password: password,
-            createdAt: new Date().toISOString()
-        };
-        
-        console.log('Creating new user:', userKey);
-                
-        await storageSet(userKey, JSON.stringify(newUser));
-        console.log('User created successfully');
-        
-        // Auto-login after signup
-        currentUser = email;
-        isGuest = false;
-        
-        // Initialize empty data for new user
-        roster = [];
-        window.roster = [];
-        window.savedPresets = {};
-        
-        showMainApp();
-        alert('Account created successfully!');
-    } catch (error) {
-        console.error('Signup error:', error);
-        const signupMessage = document.getElementById('signupMessage');
-        signupMessage.textContent = 'Signup failed. Please try again. Error: ' + error.message;
-        signupMessage.style.display = 'block';
-    }
-}
-
-// Continue as guest
-function continueAsGuest() {
-    currentUser = null;
-    isGuest = true;
-    showMainApp();
-}
-
-// Show main app
-function showMainApp() {
-    document.getElementById('authScreen').classList.add('hidden');
-    document.getElementById('mainApp').classList.remove('hidden');
-}
-
-// Logout
-function logout() {
-    currentUser = null;
-    isGuest = false;
-    roster = [];
-    window.roster = [];
-    selectedForGame = [];
-    window.selectedForGame = [];
-    window.savedPresets = {};
-    
-    document.getElementById('authScreen').classList.remove('hidden');
-    document.getElementById('mainApp').classList.add('hidden');
-    
-    // Clear forms
-    document.getElementById('loginEmail').value = '';
-    document.getElementById('loginPassword').value = '';
-    document.getElementById('signupEmail').value = '';
-    document.getElementById('signupPassword').value = '';
-    document.getElementById('signupPasswordConfirm').value = '';
-    
-    renderRoster();
-    displaySavedRosters();
-}
-
-// Load user data
-async function loadUserData() {
-    if (isGuest) return;
-
-    try {
-        const rosterKey = `roster_${currentUser}`;
-        const presetsKey = `presets_${currentUser}`;
-
-        let rosterData = null, presetsData = null;
-
-        try { rosterData = await storageGet(rosterKey); } catch {}
-        try { presetsData = await storageGet(presetsKey); } catch {}
-
-        const loadedRoster = rosterData?.value ? safeJsonParse(rosterData.value, []) : [];
-        let rosterModified = false;
-
-        loadedRoster.forEach(p => {
-            if (!p.id) {
-                p.id = makeId();
-                rosterModified = true;
-            }
-        });
-
-        roster = loadedRoster;
-        window.roster = roster;
-
-        let presets = presetsData?.value ? safeJsonParse(presetsData.value, {}) : {};
-        let presetsModified = false;
-
-        for (const [name, value] of Object.entries(presets)) {
-            if (Array.isArray(value) && value.length && typeof value[0] === "object") {
-                const ids = [];
-                value.forEach(oldPerson => {
-                    let found = window.roster.find(p => p.name === oldPerson.name && p.img === oldPerson.img);
-                    if (!found) {
-                        const newPerson = { id: makeId(), name: oldPerson.name, img: oldPerson.img };
-                        window.roster.push(newPerson);
-                        roster = window.roster;
-                        found = newPerson;
-                        rosterModified = true;
-                    }
-                    ids.push(found.id);
-                });
-                presets[name] = ids;
-                presetsModified = true;
-            }
-        }
-
-        window.savedPresets = presets;
-
-        if (rosterModified) await storageSet(rosterKey, JSON.stringify(window.roster));
-        if (presetsModified) await storageSet(presetsKey, JSON.stringify(window.savedPresets));
-
-        renderRoster();
-        displaySavedRosters();
-    } catch (error) {
-        console.log('Error loading user data:', error);
-        roster = [];
-        window.roster = [];
-        window.savedPresets = {};
-        renderRoster();
-        displaySavedRosters();
-    }
-}
-
-let roster = [];
-let selectedForGame = []; // Track selections for this game
-let gameRoster = [];
-let currentPicker=1,currentTurn=1,selectedCard=null,secret1=null,secret2=null;
-let eliminated={1:new Set(),2:new Set()};
-
-// -------------------- Two-Screen (WebRTC) Multiplayer --------------------
-let onlineMode = false;
-let onlineRole = null; // 'host' or 'join'
-let myPlayerNumber = 1; // host=1, join=2
-let pc = null;
-let dc = null;
-let onlineConnected = false;
-let onlineGameRoster = [];
-let mySecretOnline = null;
-let myReadyOnline = false;
-let oppReadyOnline = false;
-let pendingGuessName = null;
-
-// WebSocket signaling (numeric room code flow)
-let ws = null;
-let roomCode = null;
-let joinerConnected = false;
-
-function openOnlineModal(){
-  document.getElementById('onlineModal').style.display = 'flex';
-  showOnlineTab('host');
-  setOnlineStatus('Status: Not connected');
-  setHostStatus('Status: Not connected');
-  setJoinStatus('Status: Not connected');
-}
-function closeOnlineModal(){
-  document.getElementById('onlineModal').style.display = 'none';
-}
-function showOnlineTab(tab){
-  const hostTab = document.getElementById('hostTab');
-  const joinTab = document.getElementById('joinTab');
-  const hostPane = document.getElementById('onlineHostPane');
-  const joinPane = document.getElementById('onlineJoinPane');
-
-  if(tab === 'host'){
-    hostTab.classList.add('active'); joinTab.classList.remove('active');
-    hostPane.classList.remove('hidden'); joinPane.classList.add('hidden');
-  } else {
-    joinTab.classList.add('active'); hostTab.classList.remove('active');
-    joinPane.classList.remove('hidden'); hostPane.classList.add('hidden');
+  const email = document.getElementById('loginEmail').value.trim();
+  const password = document.getElementById('loginPassword').value;
+  const messageDiv = document.getElementById('loginMessage');
+  
+  if (!email || !password) {
+    messageDiv.textContent = 'Please enter both email and password';
+    messageDiv.style.display = 'block';
+    return;
   }
-}
-function setOnlineStatus(text){
-  const el = document.getElementById('onlineConnStatus');
-  if(el) el.textContent = text;
-}
-function setHostStatus(text){
-  const el = document.getElementById('hostStatus');
-  if(el) el.textContent = text;
-}
-function setJoinStatus(text){
-  const el = document.getElementById('joinStatus');
-  if(el) el.textContent = text;
-}
-function setHostCode(code){
-  const el = document.getElementById('hostGameCode');
-  if(el) el.textContent = code ? code : '— — — — — —';
-}
-
-function getServerUrl(){
-  const params = new URLSearchParams(window.location.search);
-  const override = params.get('server');
-  if(override && override.trim()){
-    return override.trim();
-  }
-  return 'https://guesswho-signaling.onrender.com';
-}
-
-
-
-function normalizeWsUrl(url){
-  let wsUrl = url.trim();
-  if(wsUrl.startsWith('https://')) wsUrl = 'wss://' + wsUrl.slice(8);
-  else if(wsUrl.startsWith('http://')) wsUrl = 'ws://' + wsUrl.slice(7);
-  return wsUrl;
-}
-function normalizeHttpUrl(url){
-  let httpUrl = url.trim();
-  if(httpUrl.startsWith('wss://')) httpUrl = 'https://' + httpUrl.slice(6);
-  else if(httpUrl.startsWith('ws://')) httpUrl = 'http://' + httpUrl.slice(5);
-  return httpUrl;
-}
-
-async function wakeServerOnce(){
-  const base = getServerUrl();
-  if(!base) return;
-  const httpUrl = normalizeHttpUrl(base);
-  const controller = new AbortController();
-  const t = setTimeout(()=>controller.abort(), 6000);
+  
   try {
-    setOnlineStatus('Status: Waking server…');
-    if(onlineRole === 'host') setHostStatus('Status: Waking server…');
-    if(onlineRole === 'join') setJoinStatus('Status: Waking server…');
-    await fetch(httpUrl, { method:'GET', mode:'cors', signal: controller.signal, cache:'no-store' });
-  } catch(e){
-    // It's okay if this fails (CORS / timeout). We'll still try WebSocket.
-  } finally {
-    clearTimeout(t);
-  }
-}
-
-async function wsEnsureConnectedWithRetry(maxAttempts=4){
-  let lastErr = null;
-  for(let attempt=1; attempt<=maxAttempts; attempt++){
-    try {
-      if(attempt === 1) await wakeServerOnce();
-      await wsEnsureConnectedWithRetry();
-      return;
-    } catch(e){
-      lastErr = e;
-      const waitMs = 800 * attempt;
-      setOnlineStatus(`Status: Connecting… (retry ${attempt}/${maxAttempts})`);
-      if(onlineRole === 'host') setHostStatus(`Status: Connecting… (retry ${attempt}/${maxAttempts})`);
-      if(onlineRole === 'join') setJoinStatus(`Status: Connecting… (retry ${attempt}/${maxAttempts})`);
-      await new Promise(r=>setTimeout(r, waitMs));
-    }
-  }
-  throw lastErr || new Error('Could not connect');
-}
-
-function showOnlineWait(title, sub=null, showBtn=false){
-  document.getElementById('onlineWaitText').textContent = title;
-  document.getElementById('onlineWaitSub').textContent = sub || '';
-  document.getElementById('onlineWaitBtn').style.display = showBtn ? 'inline-block' : 'none';
-  document.getElementById('onlineWait').style.display = 'flex';
-}
-function hideOnlineWait(){
-  document.getElementById('onlineWait').style.display = 'none';
-}
-
-function disconnectOnline(){
-  try { if(ws) ws.close(); } catch {}
-  ws = null; roomCode = null; joinerConnected = false;
-
-  try { if(dc) dc.close(); } catch {}
-  try { if(pc) pc.close(); } catch {}
-  pc = null; dc = null;
-
-  onlineConnected = false;
-  onlineMode = false;
-  onlineRole = null;
-  myPlayerNumber = 1;
-  mySecretOnline = null;
-  myReadyOnline = false;
-  oppReadyOnline = false;
-  pendingGuessName = null;
-
-  setHostCode(null);
-  setOnlineStatus('Status: Not connected');
-  setHostStatus('Status: Not connected');
-  setJoinStatus('Status: Not connected');
-  hideOnlineWait();
-}
-
-function wsEnsureConnected(){
-  return new Promise((resolve, reject) => {
-    const url = getServerUrl();
-    if(!url) return reject(new Error('Missing Server URL'));
-
-    if(ws && (ws.readyState === WebSocket.OPEN)) return resolve();
-
-    if(ws && ws.readyState === WebSocket.CONNECTING){
-      const t = setInterval(() => {
-        if(!ws) { clearInterval(t); reject(new Error('WebSocket closed')); }
-        else if(ws.readyState === WebSocket.OPEN) { clearInterval(t); resolve(); }
-        else if(ws.readyState === WebSocket.CLOSED) { clearInterval(t); reject(new Error('WebSocket closed')); }
-      }, 100);
-      setTimeout(()=>{ clearInterval(t); reject(new Error('WebSocket timeout')); }, 8000);
-      return;
-    }
-
-    let wsUrl = normalizeWsUrl(url);
-
-    ws = new WebSocket(wsUrl);
-
-    ws.onopen = () => resolve();
-    ws.onerror = () => reject(new Error('WebSocket error'));
-    ws.onclose = () => {
-      setOnlineStatus('Status: Disconnected');
-      setHostStatus('Status: Disconnected');
-      setJoinStatus('Status: Disconnected');
-    };
-    ws.onmessage = (ev) => {
-      try {
-        const msg = JSON.parse(ev.data);
-        handleWsMessage(msg);
-      } catch(e){
-        console.log('Bad WS message', ev.data);
-      }
-    };
-
-    setOnlineStatus('Status: Connecting…');
-    setHostStatus('Status: Connecting…');
-    setJoinStatus('Status: Connecting…');
-  });
-}
-
-function wsSend(obj){
-  if(ws && ws.readyState === WebSocket.OPEN){
-    ws.send(JSON.stringify(obj));
-  }
-}
-
-async function hostCreateGame(){
-  onlineRole = 'host';
-  myPlayerNumber = 1;
-  joinerConnected = false;
-  setHostStatus('Status: Connecting…');
-  setOnlineStatus('Status: Connecting…');
-
-  try {
-    await wsEnsureConnectedWithRetry();
-    wsSend({ type: 'HOST_CREATE' });
-  } catch (e){
-    console.error(e);
-    alert('Could not connect yet. If Render is sleeping, wait ~15–30 seconds and try again. Also double-check the Server URL.');
-    setHostStatus('Status: Not connected');
-    setOnlineStatus('Status: Not connected');
-  }
-}
-
-async function joinGame(){
-  onlineRole = 'join';
-  myPlayerNumber = 2;
-  const raw = (document.getElementById('joinCodeInput')?.value || '');
-  const code = raw.replace(/\D/g,'').slice(0,6);
-  if(code.length !== 6) return alert('Enter the 6-digit code.');
-  setJoinStatus('Status: Connecting…');
-  setOnlineStatus('Status: Connecting…');
-
-  try {
-    await wsEnsureConnectedWithRetry();
-    wsSend({ type: 'JOIN_ROOM', code });
-  } catch (e){
-    console.error(e);
-    alert('Could not connect yet. If Render is sleeping, wait ~15–30 seconds and try again. Also double-check the Server URL.');
-    setJoinStatus('Status: Not connected');
-    setOnlineStatus('Status: Not connected');
-  }
-}
-
-function handleWsMessage(msg){
-  if(msg.type === 'ROOM_CREATED'){
-    roomCode = msg.code;
-    setHostCode(roomCode);
-    setHostStatus('Status: Waiting for joiner…');
-    setOnlineStatus('Status: Waiting for joiner…');
-  }
-  else if(msg.type === 'JOINER_CONNECTED'){
-    joinerConnected = true;
-    setHostStatus('Status: Joiner connected ✅');
-    setOnlineStatus('Status: Joiner connected ✅');
-    hostStartRtcHandshake();
-  }
-  else if(msg.type === 'JOINED'){
-    roomCode = msg.code;
-    setJoinStatus('Status: Connected to room ✅');
-    setOnlineStatus('Status: Connected to room ✅');
-  }
-  else if(msg.type === 'SIGNAL'){
-    handleSignal(msg.data);
-  }
-  else if(msg.type === 'ERROR'){
-    alert(msg.message || 'Server error');
-    setOnlineStatus('Status: Error');
-    if(onlineRole === 'host') setHostStatus('Status: Error');
-    if(onlineRole === 'join') setJoinStatus('Status: Error');
-  }
-  else if(msg.type === 'JOINER_DISCONNECTED'){
-    joinerConnected = false;
-    setHostStatus('Status: Joiner disconnected');
-    setOnlineStatus('Status: Joiner disconnected');
-  }
-}
-
-function ensurePeer(){
-  if(pc) return;
-
-  pc = new RTCPeerConnection({
-    iceServers: [{ urls: "stun:stun.l.google.com:19302" }]
-  });
-
-  pc.onicecandidate = (ev) => {
-    if(ev.candidate){
-      wsSend({ type:'SIGNAL', data:{ kind:'ice', payload: ev.candidate } });
-    }
-  };
-
-  pc.onconnectionstatechange = () => {
-    if(pc.connectionState === 'connected'){
-      setOnlineStatus('Status: Connected ✅');
-    }
-  };
-
-  pc.ondatachannel = (ev) => {
-    dc = ev.channel;
-    wireDataChannel();
-  };
-}
-
-function wireDataChannel(){
-  if(!dc) return;
-  dc.onopen = () => {
-    onlineConnected = true;
-    setOnlineStatus('Status: Connected ✅');
-    if(onlineRole === 'host') setHostStatus('Status: Connected ✅');
-    if(onlineRole === 'join') setJoinStatus('Status: Connected ✅');
-  };
-  dc.onclose = () => {
-    onlineConnected = false;
-    setOnlineStatus('Status: Disconnected');
-  };
-  dc.onmessage = (ev) => {
-    try {
-      const msg = JSON.parse(ev.data);
-      handleOnlineMessage(msg);
-    } catch (e) {
-      console.log('Bad message:', ev.data);
-    }
-  };
-}
-
-function sendOnline(msg){
-  if(dc && dc.readyState === 'open'){
-    dc.send(JSON.stringify(msg));
-  }
-}
-
-async function hostStartRtcHandshake(){
-  if(onlineRole !== 'host') return;
-  ensurePeer();
-  if(!dc){
-    dc = pc.createDataChannel('guesswho');
-    wireDataChannel();
-  }
-  const offer = await pc.createOffer();
-  await pc.setLocalDescription(offer);
-  wsSend({ type:'SIGNAL', data:{ kind:'offer', payload: pc.localDescription }});
-  setHostStatus('Status: Sending connection…');
-}
-
-async function handleSignal(data){
-  if(!data) return;
-  ensurePeer();
-
-  if(data.kind === 'offer'){
-    await pc.setRemoteDescription(data.payload);
-    const answer = await pc.createAnswer();
-    await pc.setLocalDescription(answer);
-    wsSend({ type:'SIGNAL', data:{ kind:'answer', payload: pc.localDescription }});
-    setJoinStatus('Status: Sending response…');
-  }
-  else if(data.kind === 'answer'){
-    await pc.setRemoteDescription(data.payload);
-    setHostStatus('Status: Connected ✅');
-  }
-  else if(data.kind === 'ice'){
-    try { await pc.addIceCandidate(data.payload); } catch (e) {}
-  }
-}
-
-// Host starts the online game using the currently selected roster
-function startOnlineGameAsHost(){
-  if(!onlineConnected){
-    alert('Not connected yet. Create Game Code, then accept the Answer.');
-    return;
-  }
-  // Use current selection as game roster
-  onlineGameRoster = (window.selectedForGame || []).map(idx => window.roster[idx]).filter(Boolean);
-  if(onlineGameRoster.length < 2){
-    alert('Select at least 2 people (green outline) before starting.');
-    return;
-  }
-
-  // Send roster to join player
-  sendOnline({ type:'INIT', roster: onlineGameRoster });
-
-  // Locally begin pick phase
-  onlineMode = true;
-  closeOnlineModal();
-  beginOnlinePick(onlineGameRoster);
-  setOnlineStatus('Status: Connected ✅');
-}
-
-function beginOnlinePick(rosterArr){
-  onlineGameRoster = rosterArr;
-  mySecretOnline = null;
-  myReadyOnline = false;
-  oppReadyOnline = false;
-  pendingGuessName = null;
-
-  document.getElementById('rosterBox').classList.add('hidden');
-  document.getElementById('pickBox').classList.remove('hidden');
-  document.getElementById('gameBox').classList.add('hidden');
-
-  pickTitle.textContent = `Player ${myPlayerNumber}: Pick Your Character`;
-  pickGrid.innerHTML = '';
-  selectedCard = null;
-
-  onlineGameRoster.forEach(p => {
-    const c = document.createElement('div');
-    c.className = 'card';
-    c.innerHTML = `<img src="${p.img}"><div class="name">${p.name}</div>`;
-    c.onclick = ()=>{ pickGrid.querySelectorAll('.card').forEach(x=>x.classList.remove('selected')); c.classList.add('selected'); selectedCard=p; };
-    pickGrid.appendChild(c);
-  });
-}
-
-// Override confirmPick behavior when onlineMode is true
-const _confirmPickLocal = confirmPick;
-confirmPick = function(){
-  if(!onlineMode) return _confirmPickLocal();
-
-  if(!selectedCard) return alert('Pick one');
-  mySecretOnline = selectedCard;
-  myReadyOnline = true;
-
-  // Hide pick box, show waiting
-  document.getElementById('pickBox').classList.add('hidden');
-  showOnlineWait('Waiting for the other player…', 'Once both players have picked a character, the game will start.');
-
-  sendOnline({ type:'READY' });
-
-  // If both ready already, start
-  maybeStartOnlineGame();
-};
-
-function maybeStartOnlineGame(){
-  if(myReadyOnline && oppReadyOnline){
-    hideOnlineWait();
-    document.getElementById('gameBox').classList.remove('hidden');
-
-    // Online game always starts with Player 1
-    currentTurn = 1;
-    eliminated = {1:new Set(),2:new Set()};
-    guessMode = false;
-
-    renderOnlineBoard();
-  }
-}
-
-function renderOnlineBoard(){
-  // Only render the board; turn mechanics differ
-  boardGrid.innerHTML = '';
-  const secret = mySecretOnline;
-  turnTitle.textContent = `Player ${currentTurn} Turn`;
-  secretDisplay.textContent = `Your Secret: ${secret?.name || ''}`;
-
-  // Disable controls if not your turn
-  const isMyTurn = (currentTurn === myPlayerNumber);
-  document.querySelector('.guess')?.toggleAttribute('disabled', !isMyTurn);
-
-  onlineGameRoster.forEach(p=>{
-    const c=document.createElement('div');
-    c.className='card';
-    if(eliminated[myPlayerNumber].has(p.name)) c.classList.add('eliminated');
-    c.innerHTML=`<img src="${p.img}"><div class="name">${p.name}</div>`;
-    c.onclick=()=>{
-      if(!isMyTurn){
-        showOnlineWait('Not your turn', 'Wait for the other player to end their turn.', true);
-        return;
-      }
-      if(guessMode){
-        onlineSendGuess(p.name);
-      } else {
-        eliminated[myPlayerNumber].has(p.name) ? eliminated[myPlayerNumber].delete(p.name) : eliminated[myPlayerNumber].add(p.name);
-        c.classList.toggle('eliminated');
-      }
-    };
-    boardGrid.appendChild(c);
-  });
-}
-
-// Override renderBoard/resetEliminations/endTurn/guessMode flows for online
-const _startGuessMode = startGuessMode;
-startGuessMode = function(){
-  if(!onlineMode) return _startGuessMode();
-  if(currentTurn !== myPlayerNumber){
-    showOnlineWait('Not your turn', 'You can only guess on your turn.', true);
-    return;
-  }
-  guessMode = true;
-  showOnlineWait('Guess Mode', 'Tap the character you want to guess.', true);
-};
-
-const _resetEliminations = resetEliminations;
-resetEliminations = function(){
-  if(!onlineMode) return _resetEliminations();
-  eliminated[myPlayerNumber] = new Set();
-  renderOnlineBoard();
-};
-
-const _endTurn = endTurn;
-endTurn = function(){
-  if(!onlineMode) return _endTurn();
-  if(currentTurn !== myPlayerNumber){
-    showOnlineWait('Not your turn', 'Wait for the other player to end their turn.', true);
-    return;
-  }
-  currentTurn = (currentTurn === 1 ? 2 : 1);
-  sendOnline({ type:'TURN', turn: currentTurn });
-  renderOnlineBoard();
-  showOnlineWait('Turn passed', `It is now Player ${currentTurn}'s turn.`, true);
-};
-
-function onlineSendGuess(name){
-  if(!onlineMode) return;
-  if(currentTurn !== myPlayerNumber) return;
-  guessMode = false;
-  pendingGuessName = name;
-  showOnlineWait('Checking guess…', `You guessed: ${name}`, false);
-  sendOnline({ type:'GUESS', name });
-}
-
-function handleOnlineMessage(msg){
-  switch(msg.type){
-    case 'INIT': {
-      // Join receives roster and begins online game
-      onlineMode = true;
-      onlineRole = 'join';
-      myPlayerNumber = 2;
-      onlineGameRoster = msg.roster || [];
-      closeOnlineModal();
-      beginOnlinePick(onlineGameRoster);
-      break;
-    }
-    case 'READY': {
-      oppReadyOnline = true;
-      maybeStartOnlineGame();
-      break;
-    }
-    case 'TURN': {
-      currentTurn = msg.turn;
-      renderOnlineBoard();
-      if(currentTurn === myPlayerNumber){
-        showOnlineWait('Your turn!', 'Ask a question, eliminate, or make a guess.', true);
-      }
-      break;
-    }
-    case 'GUESS': {
-      // Opponent guessed a name on their turn; we evaluate against our secret and respond
-      const guessed = msg.name;
-      const correct = (guessed === (mySecretOnline?.name || ''));
-      sendOnline({ type:'GUESS_RESULT', correct, guessed });
-      if(correct){
-        // Opponent wins
-        onlineWin( (myPlayerNumber === 1 ? 2 : 1) );
-      } else {
-        // Nothing else needed; opponent will handle
-        showOnlineWait('Opponent guessed wrong', `${guessed} was not your character.`, true);
-      }
-      break;
-    }
-    case 'GUESS_RESULT': {
-      hideOnlineWait();
-      const { correct, guessed } = msg;
-      if(correct){
-        onlineWin(myPlayerNumber);
-      } else {
-        showOnlineWait('❌ Wrong guess!', `${guessed} was not the opponent's character.`, true);
-        // turn automatically remains; user can end turn when ready
-      }
-      pendingGuessName = null;
-      break;
-    }
-    case 'WIN': {
-      onlineWin(msg.player);
-      break;
-    }
-  }
-}
-
-function onlineWin(player){
-  // Show same win screen
-  document.getElementById('winText').textContent = `🎉 Player ${player} Wins!`;
-  document.getElementById('winScreen').style.display = 'flex';
-
-  // Confetti (reuse)
-  for(let i=0;i<100;i++){
-    const c=document.createElement('div');
-    c.className='confetti';
-    c.style.left=Math.random()*100+'vw';
-    c.style.top='-10px';
-    c.style.background=`hsl(${Math.random()*360},80%,60%)`;
-    c.style.animationDelay=Math.random()*3+'s';
-    c.style.animationDuration=(2 + Math.random()*2)+'s';
-    document.body.appendChild(c);
-  }
-}
-
-// Reset game: keep online connection but exit to roster
-const _resetGame = resetGame;
-resetGame = function(){
-  if(!onlineMode) return _resetGame();
-  // Online reset: return to roster selection screen, keep connection
-  selectedForGame = [];
-  window.selectedForGame = [];
-  onlineGameRoster = [];
-  mySecretOnline = null;
-  myReadyOnline = false;
-  oppReadyOnline = false;
-  pendingGuessName = null;
-  guessMode = false;
-  eliminated = {1:new Set(),2:new Set()};
-  currentTurn = 1;
-
-  document.querySelectorAll('.confetti').forEach(c => c.remove());
-  document.getElementById('rosterBox').classList.remove('hidden');
-  document.getElementById('pickBox').classList.add('hidden');
-  document.getElementById('gameBox').classList.add('hidden');
-  document.getElementById('winScreen').style.display = 'none';
-  renderRoster();
-  displaySavedRosters();
-};
-// ------------------ end Two-Screen Multiplayer ------------------
-
-let waitingForNextPicker=false, guessMode=false;
-
-// Load roster from storage on page load
-async function loadRoster() {
-    if (isGuest || !currentUser) return;
-    
-    try {
-        const rosterKey = `roster_${currentUser}`;
-        const result = await storageGet(rosterKey);
-        if (result && result.value) {
-            roster = JSON.parse(result.value);
-            renderRoster();
-        }
-    } catch (error) {
-        console.log('No saved roster found:', error);
-    }
-}
-
-// Save roster to storage
-async function saveRoster() {
-    if (isGuest || !currentUser) return;
-    try {
-        const rosterKey = `roster_${currentUser}`;
-        await storageSet(rosterKey, JSON.stringify(roster));
-        console.log('Roster saved successfully');
-    } catch (error) {
-        console.error('Failed to save roster:', error);
-        alert('⚠️ Could not save roster. Try smaller images or delete some entries.');
-    }
-}
-
-// Load saved presets from storage
-async function loadSavedPresets() {
-    if (isGuest || !currentUser) return;
-    
-    try {
-        const presetsKey = `presets_${currentUser}`;
-        const result = await storageGet(presetsKey);
-        if (result && result.value) {
-            window.savedPresets = JSON.parse(result.value);
-            displaySavedRosters();
-        }
-    } catch (error) {
-        console.log('No saved presets found:', error);
-        window.savedPresets = {};
-    }
-}
-
-// Save presets to storage
-async function saveSavedPresets() {
-    if (isGuest || !currentUser) return;
-    try {
-        const presetsKey = `presets_${currentUser}`;
-        await storageSet(presetsKey, JSON.stringify(window.savedPresets));
-        console.log('Presets saved successfully');
-    } catch (error) {
-        console.error('Failed to save presets:', error);
-        alert('⚠️ Could not save rosters. Try deleting a roster name you no longer need.');
-    }
-}
-
-// Initialize - DON'T load on startup anymore since we need auth first
-// Loading happens after login/signup in loadUserData()
-
-const rosterGrid=document.getElementById('rosterGrid');
-const pickGrid=document.getElementById('pickGrid');
-const boardGrid=document.getElementById('boardGrid');
-const pickTitle=document.getElementById('pickTitle');
-const turnTitle=document.getElementById('turnTitle');
-const secretDisplay=document.getElementById('secretDisplay');
-const passScreen=document.getElementById('passScreen');
-const wrongScreen=document.getElementById('wrongScreen');
-const deleteConfirm=document.getElementById('deleteConfirm');
-const deletePresetConfirm=document.getElementById('deletePresetConfirm');
-const deleteText=document.getElementById('deleteText');
-const deletePresetText=document.getElementById('deletePresetText');
-const passText=document.getElementById('passText');
-
-let pendingDeleteIndex = null;
-let pendingDeletePresetName = null;
-
-function renderRoster(){
-    console.log('renderRoster called');
-    rosterGrid.innerHTML='';
-    
-    // Make sure roster exists
-    if (!window.roster) window.roster = [];
-    
-    console.log('About to iterate roster, length:', window.roster.length);
-    
-    window.roster.forEach((p,i)=>{
-        console.log('Creating card for:', p.name);
-        const wrapper = document.createElement('div');
-        wrapper.style.position = 'relative';
-        
-        const c = document.createElement('div');
-        c.className = 'card';
-        if(window.selectedForGame && window.selectedForGame.includes(i)) c.classList.add('selected');
-        c.innerHTML = `<img src="${p.img}"><div class="name">${p.name}</div>`;
-        c.onclick = () => {
-            if(!window.selectedForGame) window.selectedForGame = [];
-            if(window.selectedForGame.includes(i)) {
-                window.selectedForGame = window.selectedForGame.filter(idx => idx !== i);
-                selectedForGame = window.selectedForGame;
-                c.classList.remove('selected');
-            } else {
-                window.selectedForGame.push(i);
-                selectedForGame = window.selectedForGame;
-                c.classList.add('selected');
-            }
-            
-            // Sync with Socket.IO if in multiplayer mode
-            if (isSocketMultiplayer && socket && socketRoomCode) {
-                socket.emit('sync-selected', { roomCode: socketRoomCode, selectedForGame: window.selectedForGame });
-            }
-        };
-        
-        const deleteBtn = document.createElement('button');
-        deleteBtn.className = 'delete-btn';
-        deleteBtn.innerHTML = '×';
-        deleteBtn.onclick = (e) => {
-            e.stopPropagation();
-            e.preventDefault();
-            showDeleteConfirm(i);
-        };
-        
-        wrapper.appendChild(c);
-        wrapper.appendChild(deleteBtn);
-        rosterGrid.appendChild(wrapper);
+    const response = await fetch(`${API_URL}/auth/login`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, password })
     });
-    console.log('Roster rendered with', window.roster.length, 'people');
-}
-renderRoster();
-
-async function addPerson(){
-    const n = nameInput.value.trim();
-    const file = imgInput.files[0];
-    if(!n || !file) return;
-
-    try {
-        const compressedDataUrl = await compressImageFile(file, 256, 0.72);
-
-        if (!window.roster) {
-            window.roster = [];
-            roster = [];
-        }
-
-        window.roster.push({ id: makeId(), name: n, img: compressedDataUrl });
-        roster = window.roster;
-
-        await saveRoster();
-        renderRoster();
-
-        nameInput.value=''; imgInput.value='';
-        dropZone.textContent = '🖼️ Or Drag & Drop Image Here';
-        dropZone.style.color = '#667eea';
-    } catch (err) {
-        console.error('Failed to add person:', err);
-        alert('⚠️ Could not add person. Try a smaller image or a different browser.');
-    }
-}
-
-function showDeleteConfirm(index) {
-    pendingDeleteIndex = index;
-    window.pendingDeleteIndex = index;
-    deleteText.textContent = `Delete ${window.roster[index].name} permanently?`;
-    deleteConfirm.style.display = 'flex';
-}
-
-function cancelDelete() {
-    deleteConfirm.style.display = 'none';
-    pendingDeleteIndex = null;
-    window.pendingDeleteIndex = null;
-}
-
-async function confirmDelete() {
-    if (window.pendingDeleteIndex !== null) {
-        console.log('Deleting person at index:', window.pendingDeleteIndex);
-        window.roster.splice(window.pendingDeleteIndex, 1);
-        roster = window.roster;
-        
-        // Update selectedForGame indices after deletion
-        window.selectedForGame = window.selectedForGame
-            .filter(idx => idx !== window.pendingDeleteIndex)
-            .map(idx => idx > window.pendingDeleteIndex ? idx - 1 : idx);
-        selectedForGame = window.selectedForGame;
-        
-        await saveRoster();
-        renderRoster();
-    }
-    deleteConfirm.style.display = 'none';
-    pendingDeleteIndex = null;
-    window.pendingDeleteIndex = null;
-}
-
-async function deletePersonFromRoster(index) {
-    console.log('deletePersonFromRoster called with index:', index);
-    console.log('Person to delete:', roster[index]);
     
-    const personName = roster[index].name;
+    const data = await response.json();
     
-    // Use a timeout to ensure the confirmation shows properly
-    setTimeout(async () => {
-        const confirmed = confirm(`Delete ${personName} from roster permanently?`);
-        console.log('Confirmation result:', confirmed);
-        
-        if(confirmed) {
-            console.log('User confirmed deletion');
-            roster.splice(index, 1);
-            console.log('Roster after deletion:', roster);
-            
-            // Update selectedForGame indices after deletion
-            selectedForGame = selectedForGame
-                .filter(idx => idx !== index)
-                .map(idx => idx > index ? idx - 1 : idx);
-            
-            console.log('Saving roster...');
-            await saveRoster();
-            console.log('Roster saved, re-rendering...');
-            renderRoster();
-        } else {
-            console.log('User cancelled deletion');
-        }
-    }, 10);
-}
-
-function beginSetup(){
-    gameRoster = window.selectedForGame.map(idx => window.roster[idx]);
-    window.gameRoster = gameRoster;
-    if(gameRoster.length < 2) { 
-        document.getElementById('notEnoughScreen').style.display='flex';
-        return; 
-    }
-    
-    // If in Socket.IO multiplayer mode, use the new multiplayer flow
-    if (isSocketMultiplayer && socket && socketRoomCode) {
-        // Call the new startGame function which handles Socket.IO
-        window.startGame();
-        return;
-    }
-    
-    // Original local multiplayer flow
-    document.getElementById('rosterBox').classList.add('hidden');
-    currentPicker = 1; waitingForNextPicker = false;
-    window.selectedForGame = []; // Clear selections for next game
-    selectedForGame = window.selectedForGame;
-    pickBox.classList.remove('hidden');
-    renderPicker();
-}
-
-function closeNotEnough() {
-    document.getElementById('notEnoughScreen').style.display='none';
-}
-
-function renderPicker(){
-    pickTitle.textContent=`Player ${currentPicker}: Pick Your Character`;
-    pickGrid.innerHTML=''; selectedCard=null;
-    gameRoster.forEach(p=>{
-        const c = document.createElement('div');
-        c.className='card';
-        c.innerHTML=`<img src="${p.img}"><div class="name">${p.name}</div>`;
-        c.onclick = ()=>{ pickGrid.querySelectorAll('.card').forEach(x=>x.classList.remove('selected')); c.classList.add('selected'); selectedCard=p; };
-        pickGrid.appendChild(c);
-    });
-}
-
-function confirmPick(){
-    if(!selectedCard) return alert('Pick one');
-    if(currentPicker===1){ secret1=selectedCard; waitingForNextPicker=true; showPass('Pass to Player 2 to pick their character'); }
-    else { secret2=selectedCard; pickBox.classList.add('hidden'); gameBox.classList.remove('hidden'); showPass('Pass to Player 1 to start the game'); }
-}
-
-function continueAfterPass(){
-    passScreen.style.display='none';
-    if(waitingForNextPicker){ currentPicker=2; waitingForNextPicker=false; renderPicker(); }
-    else renderBoard();
-}
-
-function renderBoard(){
-    boardGrid.innerHTML='';
-    const secret=currentTurn===1?secret1:secret2;
-    turnTitle.textContent=`Player ${currentTurn} Turn`;
-    secretDisplay.textContent=`Your Secret: ${secret.name}`;
-    gameRoster.forEach(p=>{
-        const c=document.createElement('div');
-        c.className='card';
-        if(eliminated[currentTurn].has(p.name)) c.classList.add('eliminated');
-        c.innerHTML=`<img src="${p.img}"><div class="name">${p.name}</div>`;
-        c.onclick=()=>{
-            if(guessMode){ checkGuess(p.name); } else { eliminated[currentTurn].has(p.name)?eliminated[currentTurn].delete(p.name):eliminated[currentTurn].add(p.name); c.classList.toggle('eliminated'); }
-        };
-        boardGrid.appendChild(c);
-    });
-}
-
-function startGuessMode(){ guessMode=true; alert('Tap the character you want to guess!'); }
-
-function checkGuess(name){ 
-    guessMode=false; 
-    const opp=currentTurn===1?secret2:secret1; 
-    if(name===opp.name){ 
-        win(currentTurn); 
-    } else { 
-        wrongScreen.style.display='flex';
-    } 
-}
-
-function continueAfterWrong() {
-    wrongScreen.style.display='none';
-    endTurn();
-}
-
-function resetEliminations(){ eliminated[currentTurn]=new Set(); renderBoard(); }
-function endTurn(){ showPass(`Pass to Player ${currentTurn===1?2:1}`); currentTurn=currentTurn===1?2:1; }
-function win(player){ 
-    document.getElementById('winText').textContent=`🎉 Player ${player} Wins!`; 
-    document.getElementById('winScreen').style.display='flex'; 
-    
-    // Create confetti
-    for(let i=0;i<100;i++){ 
-        const c=document.createElement('div'); 
-        c.className='confetti'; 
-        c.style.left=Math.random()*100+'vw'; 
-        c.style.top='-10px';
-        c.style.background=`hsl(${Math.random()*360},80%,60%)`; 
-        c.style.animationDelay=Math.random()*3+'s'; 
-        c.style.animationDuration=(2 + Math.random()*2)+'s';
-        document.body.appendChild(c); 
-    } 
-    console.log('Confetti created:', document.querySelectorAll('.confetti').length);
-}
-
-function showPass(t){ passText.textContent=t; passScreen.style.display='flex'; }
-
-// Preset roster management
-async function savePreset() {
-    if (!window.selectedForGame) window.selectedForGame = [];
-    if (!window.savedPresets) window.savedPresets = {};
-
-    const presetName = document.getElementById('presetNameInput').value.trim();
-
-    if (!presetName) {
-        alert('Please enter a name for this roster');
-        return;
-    }
-    if (window.selectedForGame.length < 2) {
-        alert('Select at least 2 people to save as a preset roster');
-        return;
-    }
-
-    const ids = window.selectedForGame
-        .map(idx => window.roster[idx]?.id)
-        .filter(Boolean);
-
-    window.savedPresets[presetName] = ids;
-
-    await saveSavedPresets();
-
-    window.selectedForGame = [];
-    selectedForGame = [];
-
-    document.getElementById('presetNameInput').value = '';
-    displaySavedRosters();
-    renderRoster();
-}
-
-function displaySavedRosters() {
-    const display = document.getElementById('savedRosterDisplay');
-
-    if (!window.savedPresets) window.savedPresets = {};
-    const presetNames = Object.keys(window.savedPresets);
-
-    if (presetNames.length === 0) {
-        display.innerHTML = '<p style="text-align:center;color:#6b7280;font-size:14px;">No saved rosters yet. Select people and save them!</p>';
-        return;
-    }
-
-    display.innerHTML = '';
-    presetNames.forEach(name => {
-        const ids = window.savedPresets[name] || [];
-        const people = ids.map(id => window.roster.find(p => p.id === id)).filter(Boolean);
-
-        const rosterCard = document.createElement('div');
-        rosterCard.style.cssText = 'background:#f9fafb;border-radius:8px;padding:12px;margin:8px 0;';
-
-        const header = document.createElement('div');
-        header.style.cssText = 'display:flex;justify-content:space-between;align-items:center;cursor:pointer;';
-        header.onclick = () => togglePresetDetails(name);
-
-        const info = document.createElement('div');
-        info.innerHTML = `<strong>${name}</strong><br><span style="font-size:12px;color:#6b7280;">${people.length} people selected</span>`;
-
-        const btnGroup = document.createElement('div');
-        btnGroup.style.cssText = 'display:flex;gap:8px;';
-
-        const loadBtn = document.createElement('button');
-        loadBtn.textContent = 'Load';
-        loadBtn.className = 'secondary';
-        loadBtn.style.minWidth = '80px';
-        loadBtn.onclick = (e) => { e.stopPropagation(); loadPreset(name).catch(err => console.error(err)); };
-
-        const delBtn = document.createElement('button');
-        delBtn.textContent = 'Delete';
-        delBtn.className = 'danger';
-        delBtn.style.minWidth = '80px';
-        delBtn.onclick = (e) => { e.stopPropagation(); deletePreset(name); };
-
-        btnGroup.appendChild(loadBtn);
-        btnGroup.appendChild(delBtn);
-        header.appendChild(info);
-        header.appendChild(btnGroup);
-
-        const details = document.createElement('div');
-        details.id = `preset-details-${name}`;
-        details.style.cssText = 'display:none;margin-top:12px;padding-top:12px;border-top:1px solid #e5e7eb;';
-        details.innerHTML = '<strong style="font-size:12px;color:#6b7280;">People in this roster:</strong>';
-
-        const peopleList = document.createElement('div');
-        peopleList.style.cssText = 'display:grid;grid-template-columns:repeat(auto-fill,minmax(80px,1fr));gap:10px;margin-top:8px;';
-
-        people.forEach(person => {
-            const personCard = document.createElement('div');
-            personCard.style.cssText = 'text-align:center;';
-
-            const img = document.createElement('img');
-            img.src = person.img;
-            img.style.cssText = 'width:100%;height:80px;object-fit:cover;border-radius:8px;';
-
-            const nameLabel = document.createElement('div');
-            nameLabel.textContent = person.name;
-            nameLabel.style.cssText = 'margin-top:4px;font-size:11px;font-weight:600;';
-
-            personCard.appendChild(img);
-            personCard.appendChild(nameLabel);
-            peopleList.appendChild(personCard);
-        });
-
-        details.appendChild(peopleList);
-        rosterCard.appendChild(header);
-        rosterCard.appendChild(details);
-        display.appendChild(rosterCard);
-    });
-}
-
-function togglePresetDetails(name) {
-    const details = document.getElementById(`preset-details-${name}`);
-    if (details.style.display === 'none') {
-        details.style.display = 'block';
+    if (response.ok) {
+      currentUser = { email, token: data.token };
+      localStorage.setItem('authToken', data.token);
+      localStorage.setItem('userEmail', email);
+      showMainApp();
     } else {
-        details.style.display = 'none';
+      messageDiv.textContent = data.message || 'Login failed';
+      messageDiv.style.display = 'block';
     }
+  } catch (error) {
+    messageDiv.textContent = 'Connection error. Please try again.';
+    messageDiv.style.display = 'block';
+  }
 }
 
-async function loadPreset(name) {
-    const ids = window.savedPresets[name] || [];
-    window.selectedForGame = [];
-
-    ids.forEach(id => {
-        const index = window.roster.findIndex(p => p.id === id);
-        if (index !== -1) window.selectedForGame.push(index);
-    });
-
-    selectedForGame = window.selectedForGame;
-    renderRoster();
-}
-
-function deletePreset(name) {
-    console.log('deletePreset called for:', name);
-    pendingDeletePresetName = name;
-    window.pendingDeletePresetName = name;
-    deletePresetText.textContent = `Delete roster "${name}" permanently?`;
-    deletePresetConfirm.style.display = 'flex';
-}
-
-function cancelDeletePreset() {
-    deletePresetConfirm.style.display = 'none';
-    pendingDeletePresetName = null;
-    window.pendingDeletePresetName = null;
-}
-
-function confirmDeletePreset() {
-    if (window.pendingDeletePresetName !== null) {
-        console.log('Deleting preset:', window.pendingDeletePresetName);
-        delete window.savedPresets[window.pendingDeletePresetName];
-        console.log('Remaining presets:', window.savedPresets);
-        
-        // Save to storage
-        saveSavedPresets();
-        
-        displaySavedRosters();
-    }
-    deletePresetConfirm.style.display = 'none';
-    pendingDeletePresetName = null;
-    window.pendingDeletePresetName = null;
-}
-
-function showPresets() {
-    const presetList = document.getElementById('presetList');
-    const presetNames = Object.keys(savedPresets);
-    
-    if (presetNames.length === 0) {
-        alert('No saved rosters yet. Select people and save them as a roster first.');
-        return;
-    }
-    
-    presetList.innerHTML = '<h4 style="margin:10px 0;">Select a Roster:</h4>';
-    presetNames.forEach(name => {
-        const btn = document.createElement('button');
-        btn.textContent = `${name} (${savedPresets[name].length} people)`;
-        btn.className = 'secondary';
-        btn.style.margin = '5px';
-        btn.onclick = () => loadPreset(name);
-        
-        const delBtn = document.createElement('button');
-        delBtn.textContent = '×';
-        delBtn.className = 'danger';
-        delBtn.style.minWidth = '40px';
-        delBtn.style.margin = '5px';
-        delBtn.onclick = (e) => {
-            e.stopPropagation();
-            deletePreset(name);
-        };
-        
-        const wrapper = document.createElement('div');
-        wrapper.style.display = 'inline-block';
-        wrapper.appendChild(btn);
-        wrapper.appendChild(delBtn);
-        presetList.appendChild(wrapper);
+async function handleSignup() {
+  const email = document.getElementById('signupEmail').value.trim();
+  const password = document.getElementById('signupPassword').value;
+  const confirmPassword = document.getElementById('signupPasswordConfirm').value;
+  const messageDiv = document.getElementById('signupMessage');
+  
+  if (!email || !password || !confirmPassword) {
+    messageDiv.textContent = 'Please fill in all fields';
+    messageDiv.style.display = 'block';
+    return;
+  }
+  
+  if (password !== confirmPassword) {
+    messageDiv.textContent = 'Passwords do not match';
+    messageDiv.style.display = 'block';
+    return;
+  }
+  
+  if (password.length < 6) {
+    messageDiv.textContent = 'Password must be at least 6 characters';
+    messageDiv.style.display = 'block';
+    return;
+  }
+  
+  try {
+    const response = await fetch(`${API_URL}/auth/signup`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, password })
     });
     
-    const closeBtn = document.createElement('button');
-    closeBtn.textContent = 'Close';
-    closeBtn.style.margin = '10px 5px';
-    closeBtn.onclick = () => { presetList.style.display = 'none'; };
-    presetList.appendChild(document.createElement('br'));
-    presetList.appendChild(closeBtn);
+    const data = await response.json();
     
-    presetList.style.display = 'block';
+    if (response.ok) {
+      currentUser = { email, token: data.token };
+      localStorage.setItem('authToken', data.token);
+      localStorage.setItem('userEmail', email);
+      showMainApp();
+    } else {
+      messageDiv.textContent = data.message || 'Signup failed';
+      messageDiv.style.display = 'block';
+    }
+  } catch (error) {
+    messageDiv.textContent = 'Connection error. Please try again.';
+    messageDiv.style.display = 'block';
+  }
 }
 
-// Reset game but keep roster
-function resetGame() {
-    selectedForGame = [];
-    gameRoster = [];
-    currentPicker = 1;
-    currentTurn = 1;
-    selectedCard = null;
-    secret1 = null;
-    secret2 = null;
-    eliminated = {1: new Set(), 2: new Set()};
-    waitingForNextPicker = false;
-    guessMode = false;
-    
-    // Remove all confetti
-    document.querySelectorAll('.confetti').forEach(c => c.remove());
-    
-    document.getElementById('rosterBox').classList.remove('hidden');
-    document.getElementById('pickBox').classList.add('hidden');
-    document.getElementById('gameBox').classList.add('hidden');
-    document.getElementById('winScreen').style.display='none';
-    
-    renderRoster();
+function continueAsGuest() {
+  isGuest = true;
+  currentUser = { email: 'guest', token: null };
+  showMainApp();
 }
 
-// ========== SOCKET.IO MULTIPLAYER INTEGRATION ==========
-// This code adds server-based multiplayer without modifying the existing game logic
+function logout() {
+  currentUser = null;
+  isGuest = false;
+  localStorage.removeItem('authToken');
+  localStorage.removeItem('userEmail');
+  document.getElementById('authScreen').classList.remove('hidden');
+  document.getElementById('mainApp').classList.add('hidden');
+  roster = [];
+  renderRoster();
+}
 
+async function showMainApp() {
+  document.getElementById('authScreen').classList.add('hidden');
+  document.getElementById('mainApp').classList.remove('hidden');
+  
+  if (!isGuest) {
+    await loadRosterFromServer();
+  } else {
+    loadRosterFromLocalStorage();
+  }
+  renderRoster();
+}
+
+// Check for existing session on load
+window.addEventListener('DOMContentLoaded', async () => {
+  const token = localStorage.getItem('authToken');
+  const email = localStorage.getItem('userEmail');
+  
+  if (token && email) {
+    currentUser = { email, token };
+    showMainApp();
+  }
+});
+
+async function loadRosterFromServer() {
+  try {
+    const response = await fetch(`${API_URL}/roster`, {
+      headers: {
+        'Authorization': `Bearer ${currentUser.token}`
+      }
+    });
+    
+    if (response.ok) {
+      const data = await response.json();
+      roster = data.roster || [];
+    }
+  } catch (error) {
+    console.error('Failed to load roster:', error);
+  }
+}
+
+async function saveRosterToServer() {
+  if (isGuest) {
+    saveRosterToLocalStorage();
+    return;
+  }
+  
+  try {
+    await fetch(`${API_URL}/roster`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${currentUser.token}`
+      },
+      body: JSON.stringify({ roster })
+    });
+  } catch (error) {
+    console.error('Failed to save roster:', error);
+  }
+}
+
+function saveRosterToLocalStorage() {
+  localStorage.setItem('guestRoster', JSON.stringify(roster));
+}
+
+function loadRosterFromLocalStorage() {
+  const saved = localStorage.getItem('guestRoster');
+  if (saved) {
+    roster = JSON.parse(saved);
+  }
+}
+
+// === GAME STATE ===
+let roster = [];
+let gamePool = [];
+let p1secret = null;
+let p2secret = null;
+let currentPlayer = 1;
+let setupPhase = 1;
+
+let p1eliminated = [];
+let p2eliminated = [];
+
+// Socket.IO Multiplayer state
 let socket = null;
 let isSocketMultiplayer = false;
 let socketRoomCode = null;
 let socketPlayerNumber = null;
 
-// Initialize Socket.IO when user logs in or continues as guest
+// === ROSTER MANAGEMENT ===
+function addCharacter() {
+  const nameInput = document.getElementById('nameInput');
+  const imgInput = document.getElementById('imgInput');
+  const name = nameInput.value.trim();
+  const file = imgInput.files[0];
+  if (!name) {
+    alert('Please enter a name');
+    return;
+  }
+  if (!file) {
+    alert('Please select an image');
+    return;
+  }
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    roster.push({ name, img: e.target.result });
+    saveRosterToServer();
+    renderRoster();
+    nameInput.value = '';
+    imgInput.value = '';
+  };
+  reader.readAsDataURL(file);
+}
+
+function renderRoster() {
+  const grid = document.getElementById('rosterGrid');
+  grid.innerHTML = '';
+  roster.forEach((char, index) => {
+    const wrapper = document.createElement('div');
+    wrapper.style.position = 'relative';
+    
+    const card = document.createElement('div');
+    card.className = 'card';
+    if (char.selected) card.classList.add('selected');
+    card.innerHTML = `<img src="${char.img}" alt="${char.name}" /><div class="name">${char.name}</div>`;
+    card.onclick = () => toggleSelect(index);
+    
+    const delBtn = document.createElement('button');
+    delBtn.className = 'delete-btn';
+    delBtn.textContent = '×';
+    delBtn.onclick = (e) => {
+      e.stopPropagation();
+      deleteCharacter(index);
+    };
+    
+    wrapper.appendChild(card);
+    wrapper.appendChild(delBtn);
+    grid.appendChild(wrapper);
+  });
+}
+
+function toggleSelect(index) {
+  roster[index].selected = !roster[index].selected;
+  saveRosterToServer();
+  renderRoster();
+}
+
+function deleteCharacter(index) {
+  if (confirm(`Delete ${roster[index].name}?`)) {
+    roster.splice(index, 1);
+    saveRosterToServer();
+    renderRoster();
+  }
+}
+
+// === GAME FLOW ===
+function beginSetup() {
+  gamePool = roster.filter(c => c.selected);
+  if (gamePool.length < 2) {
+    alert('Select at least 2 people');
+    return;
+  }
+  
+  // Reset for new game
+  p1secret = null;
+  p2secret = null;
+  p1eliminated = [];
+  p2eliminated = [];
+  currentPlayer = 1;
+  setupPhase = 1;
+  isSocketMultiplayer = false;
+  
+  document.getElementById('rosterBox').classList.add('hidden');
+  document.getElementById('setupBox').classList.remove('hidden');
+  renderSetup();
+}
+
+function renderSetup() {
+  const grid = document.getElementById('setupGrid');
+  const label = document.getElementById('setupPlayerLabel');
+  label.textContent = `Player ${setupPhase}:`;
+  
+  grid.innerHTML = '';
+  gamePool.forEach((char, idx) => {
+    const card = document.createElement('div');
+    card.className = 'card';
+    card.innerHTML = `<img src="${char.img}" alt="${char.name}" /><div class="name">${char.name}</div>`;
+    card.onclick = () => selectSecret(idx);
+    grid.appendChild(card);
+  });
+  
+  document.getElementById('secretDisplay').textContent = '';
+  document.getElementById('confirmBtn').disabled = true;
+}
+
+function selectSecret(idx) {
+  const secret = gamePool[idx];
+  document.getElementById('secretDisplay').textContent = `You picked: ${secret.name}`;
+  
+  if (setupPhase === 1) {
+    p1secret = secret;
+  } else {
+    p2secret = secret;
+  }
+  
+  document.getElementById('confirmBtn').disabled = false;
+}
+
+function confirmSecret() {
+  if (setupPhase === 1) {
+    setupPhase = 2;
+    showPassScreen(2);
+  } else {
+    startGame();
+  }
+}
+
+function showPassScreen(toPlayer) {
+  document.getElementById('passToPlayer').textContent = `Player ${toPlayer}`;
+  document.getElementById('passToPlayer2').textContent = `Player ${toPlayer}`;
+  document.getElementById('passScreen').style.display = 'flex';
+}
+
+function continueAfterPass() {
+  document.getElementById('passScreen').style.display = 'none';
+  if (setupPhase === 2) {
+    renderSetup();
+  } else {
+    renderGame();
+  }
+}
+
+function startGame() {
+  currentPlayer = 1;
+  document.getElementById('setupBox').classList.add('hidden');
+  document.getElementById('gameBox').classList.remove('hidden');
+  showPassScreen(1);
+}
+
+function renderGame() {
+  const grid = document.getElementById('gameGrid');
+  const turnDisplay = document.getElementById('turnDisplay');
+  const secretDisplay = document.getElementById('gameSecretDisplay');
+  const passBtn = document.getElementById('passBtn');
+  
+  // Determine if we're in two-screen mode
+  const isTwoScreenMode = isSocketMultiplayer;
+  
+  // Update button text based on mode
+  if (isTwoScreenMode) {
+    passBtn.textContent = 'End Turn';
+  } else {
+    passBtn.textContent = 'Pass Phone';
+  }
+  
+  // Disable button if it's not the player's turn in two-screen mode
+  if (isTwoScreenMode && socketPlayerNumber !== currentPlayer) {
+    passBtn.disabled = true;
+  } else {
+    passBtn.disabled = false;
+  }
+  
+  turnDisplay.textContent = `Player ${currentPlayer}'s Turn`;
+  
+  const mySecret = currentPlayer === 1 ? p1secret : p2secret;
+  const myEliminated = currentPlayer === 1 ? p1eliminated : p2eliminated;
+  
+  secretDisplay.textContent = `Your secret: ${mySecret.name}`;
+  
+  grid.innerHTML = '';
+  gamePool.forEach((char, idx) => {
+    const card = document.createElement('div');
+    card.className = 'card';
+    if (myEliminated.includes(idx)) {
+      card.classList.add('eliminated');
+    }
+    card.innerHTML = `<img src="${char.img}" alt="${char.name}" /><div class="name">${char.name}</div>`;
+    card.onclick = () => toggleEliminate(idx);
+    grid.appendChild(card);
+  });
+}
+
+function toggleEliminate(idx) {
+  // In socket multiplayer, only allow current player to eliminate
+  if (isSocketMultiplayer && socketPlayerNumber !== currentPlayer) {
+    return;
+  }
+  
+  const myEliminated = currentPlayer === 1 ? p1eliminated : p2eliminated;
+  const index = myEliminated.indexOf(idx);
+  if (index > -1) {
+    myEliminated.splice(index, 1);
+  } else {
+    myEliminated.push(idx);
+  }
+  
+  // Sync elimination state in socket multiplayer
+  if (isSocketMultiplayer && socket) {
+    socket.emit('eliminate-card', {
+      roomCode: socketRoomCode,
+      player: currentPlayer,
+      cardIndex: idx,
+      eliminated: myEliminated.includes(idx)
+    });
+  }
+  
+  renderGame();
+}
+
+function passPhone() {
+  // In two-screen mode, check if it's the player's turn
+  if (isSocketMultiplayer) {
+    if (socketPlayerNumber !== currentPlayer) {
+      return; // Button should be disabled, but just in case
+    }
+    
+    // Emit turn end to server
+    if (socket) {
+      socket.emit('end-turn', { roomCode: socketRoomCode });
+    }
+  } else {
+    // Same phone mode
+    currentPlayer = currentPlayer === 1 ? 2 : 1;
+    showPassScreen(currentPlayer);
+  }
+}
+
+function makeGuess() {
+  // In socket multiplayer, only allow current player to guess
+  if (isSocketMultiplayer && socketPlayerNumber !== currentPlayer) {
+    alert("It's not your turn!");
+    return;
+  }
+  
+  const opponentSecret = currentPlayer === 1 ? p2secret : p1secret;
+  const guess = prompt(`Who do you think Player ${currentPlayer === 1 ? 2 : 1}'s person is?`);
+  if (!guess) return;
+  
+  const correct = guess.trim().toLowerCase() === opponentSecret.name.toLowerCase();
+  
+  if (correct) {
+    showWinScreen(currentPlayer, opponentSecret.name);
+    
+    // Emit win to server if in socket multiplayer
+    if (isSocketMultiplayer && socket) {
+      socket.emit('player-won', {
+        roomCode: socketRoomCode,
+        winner: currentPlayer,
+        secretName: opponentSecret.name
+      });
+    }
+  } else {
+    alert('Wrong guess! Game continues.');
+  }
+}
+
+function showWinScreen(winner, secretName) {
+  document.getElementById('winMessage').textContent = `Player ${winner} Wins! 🎉`;
+  document.getElementById('winDetails').textContent = `They correctly guessed: ${secretName}`;
+  document.getElementById('winScreen').style.display = 'flex';
+  launchConfetti();
+}
+
+function launchConfetti() {
+  const colors = ['#667eea', '#764ba2', '#10b981', '#ef4444', '#f59e0b'];
+  for (let i = 0; i < 80; i++) {
+    setTimeout(() => {
+      const confetti = document.createElement('div');
+      confetti.className = 'confetti';
+      confetti.style.left = Math.random() * 100 + 'vw';
+      confetti.style.backgroundColor = colors[Math.floor(Math.random() * colors.length)];
+      confetti.style.animationDuration = (Math.random() * 2 + 2) + 's';
+      document.body.appendChild(confetti);
+      setTimeout(() => confetti.remove(), 3000);
+    }, i * 30);
+  }
+}
+
+function restartGame() {
+  document.getElementById('winScreen').style.display = 'none';
+  document.getElementById('gameBox').classList.add('hidden');
+  document.getElementById('rosterBox').classList.remove('hidden');
+  
+  // Clean up socket multiplayer state if active
+  if (isSocketMultiplayer) {
+    cancelSocketRoom();
+  }
+}
+
+// === SOCKET.IO MULTIPLAYER ===
 function initSocketIO() {
-    if (socket) return; // Already initialized
-    
-    socket = io();
-    
-    socket.on('connect', () => {
-        console.log('Connected to multiplayer server');
-    });
-    
-    socket.on('player-joined', () => {
-        // Update banner status
-        const statusDiv = document.getElementById('multiplayerStatus');
-        if (statusDiv) {
-            statusDiv.innerHTML = '✅ Player 2 joined! Click "Start Game" below.';
-        }
-        
-        // Update instructions
-        const instructionsDiv = document.getElementById('multiplayerInstructions');
-        if (instructionsDiv) {
-            instructionsDiv.innerHTML = `
-                <div style="font-weight:700;font-size:16px;margin-bottom:8px;color:#059669;">✅ Player 2 Joined!</div>
-                <div style="font-size:14px;line-height:1.6;color:#065f46;">
-                    Now you can select people and start the game.<br>
-                    <strong>Click "Start Game" button below when ready.</strong>
-                </div>
-            `;
-            instructionsDiv.style.background = '#d1fae5';
-            instructionsDiv.style.borderColor = '#059669';
-        }
-        
-        // Show the Start Game button (hide "Same Phone" button)
-        showMultiplayerStartButton();
-    });
-    
-    socket.on('roster-synced', (syncedRoster) => {
-        roster = syncedRoster;
-        window.roster = syncedRoster;
-        renderRoster();
-    });
-    
-    socket.on('selected-synced', (syncedSelected) => {
-        selectedForGame = syncedSelected;
-        window.selectedForGame = syncedSelected;
-        renderRoster();
-    });
-    
-    socket.on('game-started', (data) => {
-        // Close waiting modal for Player 2
-        const waitingModal = document.getElementById('socketWaitingModal');
-        if (waitingModal) waitingModal.remove();
-        
-        // Set up the game for Player 2 with the received game roster
-        gameRoster = data.gameRoster;
-        window.gameRoster = gameRoster;
-        
-        eliminated = {1: new Set(), 2: new Set()};
-        currentPicker = socketPlayerNumber;
-        currentTurn = 1;
-        secret1 = null;
-        secret2 = null;
-        selectedCard = null;
-        guessMode = false;
-        
-        // Go to pick screen
-        document.getElementById('rosterBox').classList.add('hidden');
-        document.getElementById('pickBox').classList.remove('hidden');
-        document.getElementById('gameBox').classList.add('hidden');
-        renderPicker();
-    });
-    
-    socket.on('secret-picked', (data) => {
-        if (data.playerNumber === 1) {
-            secret1 = data.secretCard;
-        } else {
-            secret2 = data.secretCard;
-        }
-        checkIfBothSecretsPicked();
-    });
-    
-    socket.on('eliminated-synced', (data) => {
-        eliminated[data.playerNumber] = new Set(data.eliminated);
-        renderBoard();
-    });
-    
-    socket.on('turn-ended', () => {
-        currentTurn = currentTurn === 1 ? 2 : 1;
-        guessMode = false;
-        renderBoard();
-    });
-    
-    socket.on('guess-made', (data) => {
-        handleRemoteGuess(data.playerNumber, data.guessIndex);
-    });
-    
-    socket.on('game-won', (data) => {
-        showWinner(data.winner);
-    });
-    
-    socket.on('game-reset', () => {
-        resetGame();
-    });
-    
-    socket.on('player-disconnected', () => {
-        alert('Other player disconnected!');
-        isSocketMultiplayer = false;
-        socketRoomCode = null;
-        socketPlayerNumber = null;
-    });
-}
-
-function checkIfBothSecretsPicked() {
-    if (secret1 !== null && secret2 !== null) {
-        // Hide the waiting screen
-        hidePickWaitingScreen();
-        
-        waitingForNextPicker = false;
-        document.getElementById('pickBox').classList.add('hidden');
-        document.getElementById('gameBox').classList.remove('hidden');
-        renderBoard();
+  if (socket) return;
+  
+  socket = io('https://customguesswho.bsite.net', {
+    transports: ['websocket', 'polling']
+  });
+  
+  socket.on('connect', () => {
+    console.log('Connected to server');
+  });
+  
+  socket.on('player-joined', (data) => {
+    if (socketPlayerNumber === 1) {
+      // Player 1 sees that Player 2 has joined
+      const statusDiv = document.getElementById('multiplayerStatus');
+      if (statusDiv) {
+        statusDiv.innerHTML = '✅ Player 2 has joined! You can now start the game.';
+      }
+      
+      // Remove instructions and show start button
+      const instructions = document.getElementById('multiplayerInstructions');
+      if (instructions) instructions.remove();
+      
+      const controlsDiv = document.querySelector('#rosterBox > .controls');
+      if (controlsDiv) {
+        controlsDiv.innerHTML = `
+          <button onclick="startSocketMultiplayerGame()" class="guess">Start Game</button>
+          <button onclick="cancelSocketRoom()" class="secondary">Cancel</button>
+        `;
+      }
     }
-}
-
-function handleRemoteGuess(guesserNum, guessIndex) {
-    const opponentSecret = guesserNum === 1 ? secret2 : secret1;
-    
-    if (guessIndex === opponentSecret) {
-        showWinner(guesserNum);
-    } else {
-        const actualWinner = guesserNum === 1 ? 2 : 1;
-        showWinner(actualWinner);
+  });
+  
+  socket.on('game-started', (data) => {
+    if (socketPlayerNumber === 2) {
+      // Player 2 receives game start
+      gamePool = data.gamePool;
+      
+      // Close waiting modal
+      const waitingModal = document.getElementById('socketWaitingModal');
+      if (waitingModal) waitingModal.remove();
+      
+      // Remove multiplayer banner and instructions
+      const banner = document.getElementById('multiplayerBanner');
+      if (banner) banner.remove();
+      
+      // Hide roster box
+      document.getElementById('rosterBox').classList.add('hidden');
+      
+      // Go to setup for Player 2
+      document.getElementById('setupBox').classList.remove('hidden');
+      setupPhase = 2;
+      renderSetup();
     }
-}
-
-// Override startGame to add Socket.IO support
-const originalStartGame = typeof startGame !== 'undefined' ? startGame : null;
-window.startGame = function() {
-    if (isSocketMultiplayer && socketPlayerNumber === 2) {
-        alert('Only Player 1 (host) can start the game!');
-        return;
+  });
+  
+  socket.on('setup-complete', (data) => {
+    if (socketPlayerNumber === 1) {
+      // Player 1 receives Player 2's secret
+      p2secret = data.p2secret;
+      
+      // Start the game
+      currentPlayer = 1;
+      document.getElementById('setupBox').classList.add('hidden');
+      document.getElementById('gameBox').classList.remove('hidden');
+      renderGame();
     }
-    
-    if (selectedForGame.length < 2) {
-        document.getElementById('notEnoughScreen').style.display = 'flex';
-        return;
+  });
+  
+  socket.on('turn-changed', (data) => {
+    currentPlayer = data.currentPlayer;
+    renderGame();
+  });
+  
+  socket.on('card-eliminated', (data) => {
+    // Update the opponent's eliminated cards
+    if (data.player !== socketPlayerNumber) {
+      const eliminated = data.player === 1 ? p1eliminated : p2eliminated;
+      const cardIndex = data.cardIndex;
+      
+      if (data.eliminated) {
+        if (!eliminated.includes(cardIndex)) {
+          eliminated.push(cardIndex);
+        }
+      } else {
+        const idx = eliminated.indexOf(cardIndex);
+        if (idx > -1) {
+          eliminated.splice(idx, 1);
+        }
+      }
+      
+      renderGame();
     }
-    
-    gameRoster = selectedForGame.map(i => ({...roster[i]}));
-    window.gameRoster = gameRoster;
-    eliminated = {1: new Set(), 2: new Set()};
-    currentPicker = isSocketMultiplayer ? socketPlayerNumber : 1;
-    currentTurn = 1;
-    secret1 = null;
-    secret2 = null;
-    selectedCard = null;
-    guessMode = false;
-    
-    // Hide multiplayer UI elements
-    const banner = document.getElementById('multiplayerBanner');
-    if (banner) banner.remove();
-    const instructions = document.getElementById('multiplayerInstructions');
-    if (instructions) instructions.remove();
-    
-    document.getElementById('rosterBox').classList.add('hidden');
-    document.getElementById('pickBox').classList.remove('hidden');
-    document.getElementById('gameBox').classList.add('hidden');
-    renderPicker();
-    
-    if (isSocketMultiplayer && socket && socketRoomCode) {
-        // Send the actual game roster to Player 2
-        socket.emit('start-game', { 
-            roomCode: socketRoomCode,
-            gameRoster: gameRoster
-        });
-    }
-};
-
-// Wrap existing functions for Socket.IO sync
-const originalAddPerson = typeof addPerson !== 'undefined' ? addPerson : null;
-if (originalAddPerson) {
-    window.addPerson = async function() {
-        await originalAddPerson();
-        if (isSocketMultiplayer && socket && socketRoomCode) {
-            socket.emit('sync-roster', { roomCode: socketRoomCode, roster: window.roster });
-        }
-    };
-}
-
-const originalToggleSelect = typeof toggleSelect !== 'undefined' ? toggleSelect : null;
-if (originalToggleSelect) {
-    window.toggleSelect = function(index) {
-        originalToggleSelect(index);
-        if (isSocketMultiplayer && socket && socketRoomCode) {
-            socket.emit('sync-selected', { roomCode: socketRoomCode, selectedForGame: window.selectedForGame });
-        }
-    };
-}
-
-const originalConfirmPick = typeof confirmPick !== 'undefined' ? confirmPick : null;
-if (originalConfirmPick) {
-    window.confirmPick = function() {
-        if (selectedCard === null) {
-            alert('Please select a card first!');
-            return;
-        }
-        
-        // Find the index of the selected card in gameRoster
-        const secretIndex = gameRoster.findIndex(p => p.name === selectedCard.name && p.img === selectedCard.img);
-        
-        if (currentPicker === 1) {
-            secret1 = selectedCard;
-        } else {
-            secret2 = selectedCard;
-        }
-        
-        if (isSocketMultiplayer && socket && socketRoomCode) {
-            socket.emit('pick-secret', {
-                roomCode: socketRoomCode,
-                playerNumber: currentPicker,
-                secretIndex: secretIndex,
-                secretCard: selectedCard
-            });
-            
-            // Show waiting screen for multiplayer
-            showPickWaitingScreen();
-            
-            // For multiplayer, just wait for both picks
-            checkIfBothSecretsPicked();
-        } else {
-            // Original local multiplayer logic
-            if (currentPicker === 1) {
-                secret1 = selectedCard;
-                waitingForNextPicker = true;
-                showPass('Pass to Player 2 to pick their character');
-            } else {
-                secret2 = selectedCard;
-                pickBox.classList.add('hidden');
-                gameBox.classList.remove('hidden');
-                showPass('Pass to Player 1 to start the game');
-            }
-        }
-    };
-}
-
-function showPickWaitingScreen() {
-    // Determine who we're waiting for
-    const waitingFor = socketPlayerNumber === 1 ? 2 : 1;
-    
-    // Create or update waiting screen
-    let waitingScreen = document.getElementById('pickWaitingScreen');
-    if (!waitingScreen) {
-        waitingScreen = document.createElement('div');
-        waitingScreen.id = 'pickWaitingScreen';
-        waitingScreen.className = 'pass-screen';
-        waitingScreen.style.display = 'flex';
-        waitingScreen.style.zIndex = '1500';
-        document.body.appendChild(waitingScreen);
-    }
-    
-    waitingScreen.innerHTML = `
-        <div style="text-align:center;">
-            <div style="font-size:64px;margin-bottom:20px;">⏳</div>
-            <h1 style="margin-bottom:16px;">Selection Confirmed!</h1>
-            <p style="font-size:18px;color:#cbd5e1;max-width:400px;">
-                Waiting for Player ${waitingFor} to pick their character...
-            </p>
-        </div>
-    `;
-    waitingScreen.style.display = 'flex';
-}
-
-function hidePickWaitingScreen() {
-    const waitingScreen = document.getElementById('pickWaitingScreen');
-    if (waitingScreen) {
-        waitingScreen.style.display = 'none';
-    }
-}
-
-const originalEliminate = typeof eliminate !== 'undefined' ? eliminate : null;
-if (originalEliminate) {
-    window.eliminate = function(index) {
-        if (isSocketMultiplayer && currentTurn !== socketPlayerNumber) {
-            return; // Not your turn
-        }
-        
-        eliminated[currentTurn].add(index);
-        renderBoard();
-        
-        if (isSocketMultiplayer && socket && socketRoomCode) {
-            socket.emit('sync-eliminated', {
-                roomCode: socketRoomCode,
-                playerNumber: currentTurn,
-                eliminated: Array.from(eliminated[currentTurn])
-            });
-        }
-    };
-}
-
-// Wrapper for renderBoard to show correct secret in multiplayer
-const originalRenderBoard = typeof renderBoard !== 'undefined' ? renderBoard : null;
-if (originalRenderBoard) {
-    window.renderBoard = function() {
-        boardGrid.innerHTML='';
-        
-        // In multiplayer, show YOUR secret, not the current turn's secret
-        let mySecret;
-        if (isSocketMultiplayer) {
-            mySecret = socketPlayerNumber === 1 ? secret1 : secret2;
-        } else {
-            mySecret = currentTurn === 1 ? secret1 : secret2;
-        }
-        
-        // Check if it's this player's turn in multiplayer
-        const isMyTurn = !isSocketMultiplayer || (currentTurn === socketPlayerNumber);
-        
-        // Update turn title with better visual feedback
-        if (isSocketMultiplayer) {
-            if (isMyTurn) {
-                turnTitle.textContent=`🎮 Your Turn (Player ${currentTurn})`;
-                turnTitle.style.background = 'linear-gradient(135deg, #10b981 0%, #059669 100%)';
-            } else {
-                turnTitle.textContent=`⏳ Player ${currentTurn}'s Turn (Waiting...)`;
-                turnTitle.style.background = 'linear-gradient(135deg, #6b7280 0%, #4b5563 100%)';
-            }
-        } else {
-            turnTitle.textContent=`Player ${currentTurn} Turn`;
-            turnTitle.style.background = 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)';
-        }
-        
-        // Show different message based on turn
-        if (isSocketMultiplayer && !isMyTurn) {
-            secretDisplay.textContent=`Your Secret: ${mySecret.name} (Waiting...)`;
-            secretDisplay.style.opacity = '0.6';
-        } else {
-            secretDisplay.textContent=`Your Secret: ${mySecret.name}`;
-            secretDisplay.style.opacity = '1';
-        }
-        
-        gameRoster.forEach(p=>{
-            const c=document.createElement('div');
-            c.className='card';
-            if(eliminated[currentTurn].has(p.name)) c.classList.add('eliminated');
-            c.innerHTML=`<img src="${p.img}"><div class="name">${p.name}</div>`;
-            
-            // Disable clicking if not your turn in multiplayer
-            if (isSocketMultiplayer && !isMyTurn) {
-                c.style.opacity = '0.5';
-                c.style.cursor = 'not-allowed';
-                c.onclick = () => {
-                    alert(`It's Player ${currentTurn}'s turn! Please wait.`);
-                };
-            } else {
-                c.onclick=()=>{
-                    if(guessMode){ checkGuess(p.name); } else { eliminated[currentTurn].has(p.name)?eliminated[currentTurn].delete(p.name):eliminated[currentTurn].add(p.name); c.classList.toggle('eliminated'); }
-                };
-            }
-            
-            boardGrid.appendChild(c);
-        });
-        
-        // Disable/enable buttons based on turn
-        updateButtonStates(isMyTurn);
-    };
-}
-
-function updateButtonStates(isMyTurn) {
-    if (!isSocketMultiplayer) return; // Only for multiplayer
-    
-    // Find all game control buttons
-    const guessBtn = document.querySelector('.guess');
-    const resetBtn = document.querySelector('#gameBox .controls .secondary');
-    const passBtn = document.querySelector('#gameBox .controls button:not(.guess):not(.secondary)');
-    
-    const buttons = [guessBtn, resetBtn, passBtn].filter(btn => btn);
-    
-    buttons.forEach(btn => {
-        if (!isMyTurn) {
-            btn.disabled = true;
-            btn.style.opacity = '0.5';
-            btn.style.cursor = 'not-allowed';
-            btn.onclick = (e) => {
-                e.preventDefault();
-                alert(`It's Player ${currentTurn}'s turn! Please wait.`);
-            };
-        } else {
-            btn.disabled = false;
-            btn.style.opacity = '1';
-            btn.style.cursor = 'pointer';
-            // Restore original onclick (will be set by original game code)
-        }
-    });
-}
-
-const originalEndTurn = typeof endTurn !== 'undefined' ? endTurn : null;
-if (originalEndTurn) {
-    window.endTurn = function() {
-        if (isSocketMultiplayer && socket && socketRoomCode) {
-            socket.emit('end-turn', { roomCode: socketRoomCode });
-        }
-        currentTurn = currentTurn === 1 ? 2 : 1;
-        guessMode = false;
-        renderBoard();
-    };
-}
-
-const originalMakeGuess = typeof makeGuess !== 'undefined' ? makeGuess : null;
-if (originalMakeGuess) {
-    window.makeGuess = function(index) {
-        if (isSocketMultiplayer && socket && socketRoomCode) {
-            socket.emit('make-guess', {
-                roomCode: socketRoomCode,
-                playerNumber: currentTurn,
-                guessIndex: index
-            });
-        }
-        
-        const opponentSecret = currentTurn === 1 ? secret2 : secret1;
-        
-        if (index === opponentSecret) {
-            showWinner(currentTurn);
-        } else {
-            document.getElementById('wrongScreen').style.display = 'flex';
-        }
-    };
-}
-
-// Add Socket multiplayer button to the UI - REMOVED (already in HTML)
-
-function showMultiplayerStartButton() {
-    // Find the controls div in rosterBox
-    const controlsDiv = document.querySelector('#rosterBox > .controls');
-    if (controlsDiv) {
-        // Hide existing buttons
-        controlsDiv.innerHTML = '';
-        
-        // Add single Start Game button
-        const startBtn = document.createElement('button');
-        startBtn.className = 'guess';
-        startBtn.style.cssText = 'font-size:18px;padding:16px 32px;';
-        startBtn.textContent = '🎮 Start Game';
-        startBtn.onclick = () => {
-            if (window.selectedForGame.length < 2) {
-                alert('Please select at least 2 people first (click on them to make them green)');
-                return;
-            }
-            window.startGame();
-        };
-        
-        const leaveBtn = document.createElement('button');
-        leaveBtn.className = 'danger';
-        leaveBtn.textContent = 'Leave Room';
-        leaveBtn.onclick = cancelSocketRoom;
-        
-        controlsDiv.appendChild(startBtn);
-        controlsDiv.appendChild(leaveBtn);
-    }
+  });
+  
+  socket.on('game-won', (data) => {
+    showWinScreen(data.winner, data.secretName);
+  });
+  
+  socket.on('error', (data) => {
+    alert(data.message);
+  });
 }
 
 function showSocketMultiplayerModal() {
-    const modal = document.createElement('div');
-    modal.className = 'pass-screen';
-    modal.style.display = 'flex';
-    modal.style.zIndex = '1500';
-    modal.innerHTML = `
-        <div style="background:rgba(255,255,255,0.98);border-radius:24px;padding:32px;max-width:500px;position:relative;z-index:1;">
-            <h2 style="color:#1f2937;margin-bottom:20px;">🌐 Play on Two Screens</h2>
-            <p style="color:#6b7280;margin-bottom:20px;">Create or join a room to play on two devices</p>
-            
-            <button onclick="createSocketRoom()" style="width:100%;margin-bottom:12px;">Create Room</button>
-            
-            <div style="margin:16px 0;text-align:center;color:#9ca3af;">OR</div>
-            
-            <input id="socketRoomInput" type="text" placeholder="Enter 6-character code" 
-                   style="width:100%;box-sizing:border-box;margin-bottom:12px;text-transform:uppercase;" maxlength="6" />
-            <button onclick="joinSocketRoom()" class="guess" style="width:100%;margin-bottom:12px;">Join Room</button>
-            
-            <button onclick="closeSocketModal()" class="secondary" style="width:100%;margin-top:8px;">Cancel</button>
-        </div>
-    `;
-    modal.id = 'socketModal';
-    document.body.appendChild(modal);
+  document.getElementById('socketMultiplayerModal').style.display = 'flex';
+  switchSocketTab('create');
 }
 
 function closeSocketModal() {
-    const modal = document.getElementById('socketModal');
-    if (modal) modal.remove();
+  document.getElementById('socketMultiplayerModal').style.display = 'none';
+}
+
+function switchSocketTab(tab) {
+  document.getElementById('createRoomSection').classList.toggle('hidden', tab !== 'create');
+  document.getElementById('joinRoomSection').classList.toggle('hidden', tab !== 'join');
+  document.getElementById('createRoomTab').classList.toggle('active', tab === 'create');
+  document.getElementById('joinRoomTab').classList.toggle('active', tab === 'join');
 }
 
 function createSocketRoom() {
+    const selectedChars = roster.filter(c => c.selected);
+    if (selectedChars.length < 2) {
+        alert('Please select at least 2 people for the game');
+        return;
+    }
+    
     if (!socket) initSocketIO();
     
     socket.emit('create-room', (response) => {
         if (response.success) {
             socketRoomCode = response.roomCode;
-            socketPlayerNumber = response.playerNumber;
+            socketPlayerNumber = 1;
             isSocketMultiplayer = true;
+            gamePool = selectedChars;
+            
+            // Reset game state
+            p1secret = null;
+            p2secret = null;
+            p1eliminated = [];
+            p2eliminated = [];
+            currentPlayer = 1;
+            setupPhase = 1;
             
             closeSocketModal();
             
             // Show room info banner at top
             const infoBanner = document.createElement('div');
             infoBanner.id = 'multiplayerBanner';
-            infoBanner.style.cssText = 'background:linear-gradient(135deg, #667eea 0%, #764ba2 100%);color:white;padding:16px 24px;text-align:center;box-shadow:0 4px 12px rgba(0,0,0,0.2);position:relative;z-index:100;';
+            infoBanner.style.cssText = 'background:linear-gradient(135deg, #10b981 0%, #059669 100%);color:white;padding:20px;text-align:center;border-radius:18px;margin:16px auto;max-width:1000px;box-shadow:0 6px 20px rgba(16,185,129,0.4);position:relative;z-index:1;';
             infoBanner.innerHTML = `
-                <div style="font-size:14px;margin-bottom:4px;">🌐 Multiplayer Room</div>
-                <div style="font-size:28px;font-weight:800;letter-spacing:4px;margin:8px 0;">${socketRoomCode}</div>
+                <div style="font-weight:700;font-size:18px;margin-bottom:8px;">🎮 Two Screen Mode Active</div>
+                <div style="font-size:15px;margin-bottom:12px;">
+                    Room Code: <span style="font-size:28px;font-weight:800;letter-spacing:4px;background:rgba(255,255,255,0.2);padding:8px 16px;border-radius:10px;display:inline-block;margin:0 8px;">${socketRoomCode}</span>
+                </div>
                 <div id="multiplayerStatus" style="font-size:13px;opacity:0.9;">⏳ Waiting for Player 2 to join...</div>
             `;
             
@@ -2510,6 +947,97 @@ function cancelSocketRoom() {
         socket = null;
     }
 }
+
+function startSocketMultiplayerGame() {
+    // Player 1 starts the multiplayer game
+    if (socketPlayerNumber !== 1 || !socket) return;
+    
+    // Emit game start to server
+    socket.emit('start-game', {
+        roomCode: socketRoomCode,
+        gamePool: gamePool
+    });
+    
+    // Remove multiplayer banner and instructions
+    const banner = document.getElementById('multiplayerBanner');
+    if (banner) banner.remove();
+    
+    const instructions = document.getElementById('multiplayerInstructions');
+    if (instructions) instructions.remove();
+    
+    // Hide roster box
+    document.getElementById('rosterBox').classList.add('hidden');
+    
+    // Go to setup for Player 1
+    document.getElementById('setupBox').classList.remove('hidden');
+    setupPhase = 1;
+    renderSetup();
+}
+
+// Override confirmSecret for socket multiplayer
+const originalConfirmSecret = confirmSecret;
+confirmSecret = function() {
+    if (!isSocketMultiplayer) {
+        originalConfirmSecret();
+        return;
+    }
+    
+    if (setupPhase === 1 && socketPlayerNumber === 1) {
+        // Player 1 confirms their secret, wait for Player 2
+        setupPhase = 2;
+        
+        // Show waiting screen
+        const waitingModal = document.createElement('div');
+        waitingModal.className = 'pass-screen';
+        waitingModal.style.display = 'flex';
+        waitingModal.style.zIndex = '1500';
+        waitingModal.innerHTML = `
+            <div style="background:rgba(255,255,255,0.98);border-radius:24px;padding:48px;max-width:500px;text-align:center;position:relative;z-index:1;">
+                <h2 style="color:#1f2937;margin-bottom:20px;">⏳ Waiting for Player 2</h2>
+                <p style="color:#6b7280;font-size:14px;">Player 2 is selecting their secret person...</p>
+                <div style="font-size:48px;margin:20px 0;">🎮</div>
+            </div>
+        `;
+        waitingModal.id = 'socketWaitingModal';
+        document.body.appendChild(waitingModal);
+        
+        document.getElementById('setupBox').classList.add('hidden');
+        
+    } else if (setupPhase === 2 && socketPlayerNumber === 2) {
+        // Player 2 confirms their secret and sends to server
+        socket.emit('complete-setup', {
+            roomCode: socketRoomCode,
+            p2secret: p2secret
+        });
+        
+        // Remove setup box and show waiting
+        document.getElementById('setupBox').classList.add('hidden');
+        
+        const waitingModal = document.createElement('div');
+        waitingModal.className = 'pass-screen';
+        waitingModal.style.display = 'flex';
+        waitingModal.style.zIndex = '1500';
+        waitingModal.innerHTML = `
+            <div style="background:rgba(255,255,255,0.98);border-radius:24px;padding:48px;max-width:500px;text-align:center;position:relative;z-index:1;">
+                <h2 style="color:#1f2937;margin-bottom:20px;">✅ Setup Complete!</h2>
+                <p style="color:#6b7280;font-size:14px;">Starting game...</p>
+                <div style="font-size:48px;margin:20px 0;">🎮</div>
+            </div>
+        `;
+        waitingModal.id = 'socketWaitingModal';
+        document.body.appendChild(waitingModal);
+        
+        // Start game for both players
+        setTimeout(() => {
+            const modal = document.getElementById('socketWaitingModal');
+            if (modal) modal.remove();
+            
+            currentPlayer = 1;
+            document.getElementById('gameBox').classList.remove('hidden');
+            renderGame();
+        }, 1500);
+    }
+};
 
 // Initialize Socket.IO when the main app is shown
 const originalShowMainApp = showMainApp;
