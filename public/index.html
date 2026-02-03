@@ -1192,37 +1192,32 @@ function renderOnlineBoard(){
   });
 }
 
-// Override renderBoard/resetEliminations/endTurn/guessMode flows for online
-const _startGuessMode = startGuessMode;
-startGuessMode = function(){
-  if(!onlineMode) return _startGuessMode();
-  if(currentTurn !== myPlayerNumber){
-    showOnlineWait('Not your turn', 'You can only guess on your turn.', true);
-    return;
-  }
-  guessMode = true;
-  showOnlineWait('Guess Mode', 'Tap the character you want to guess.', true);
-};
+// Note: Old P2P wrappers for startGuessMode, resetEliminations, and endTurn removed
+// since they were breaking the functions and aren't needed for Socket.IO multiplayer
 
-const _resetEliminations = resetEliminations;
-resetEliminations = function(){
-  if(!onlineMode) return _resetEliminations();
-  eliminated[myPlayerNumber] = new Set();
-  renderOnlineBoard();
-};
+const _resetEliminations = typeof resetEliminations !== 'undefined' ? resetEliminations : null;
+if (_resetEliminations) {
+  resetEliminations = function(){
+    if(!onlineMode) return _resetEliminations();
+    eliminated[myPlayerNumber] = new Set();
+    renderOnlineBoard();
+  };
+}
 
-const _endTurn = endTurn;
-endTurn = function(){
-  if(!onlineMode) return _endTurn();
-  if(currentTurn !== myPlayerNumber){
-    showOnlineWait('Not your turn', 'Wait for the other player to end their turn.', true);
-    return;
-  }
-  currentTurn = (currentTurn === 1 ? 2 : 1);
-  sendOnline({ type:'TURN', turn: currentTurn });
-  renderOnlineBoard();
-  showOnlineWait('Turn passed', `It is now Player ${currentTurn}'s turn.`, true);
-};
+const _endTurn = typeof endTurn !== 'undefined' ? endTurn : null;
+if (_endTurn) {
+  endTurn = function(){
+    if(!onlineMode) return _endTurn();
+    if(currentTurn !== myPlayerNumber){
+      showOnlineWait('Not your turn', 'Wait for the other player to end their turn.', true);
+      return;
+    }
+    currentTurn = (currentTurn === 1 ? 2 : 1);
+    sendOnline({ type:'TURN', turn: currentTurn });
+    renderOnlineBoard();
+    showOnlineWait('Turn passed', `It is now Player ${currentTurn}'s turn.`, true);
+  };
+}
 
 function onlineSendGuess(name){
   if(!onlineMode) return;
