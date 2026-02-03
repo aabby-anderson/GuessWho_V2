@@ -76,14 +76,14 @@ io.on('connection', (socket) => {
 
     // Start the game (from roster screen)
     socket.on('start-game', (data) => {
-        const { roomCode } = data;
-        socket.to(roomCode).emit('game-started');
+        const { roomCode, gameRoster } = data;
+        socket.to(roomCode).emit('game-started', { gameRoster });
     });
 
     // Player picks their secret person
     socket.on('pick-secret', (data) => {
-        const { roomCode, playerNumber, secretIndex } = data;
-        socket.to(roomCode).emit('secret-picked', { playerNumber, secretIndex });
+        const { roomCode, playerNumber, secretIndex, secretCard } = data;
+        socket.to(roomCode).emit('secret-picked', { playerNumber, secretIndex, secretCard });
     });
 
     // Sync eliminated cards
