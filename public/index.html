@@ -1192,37 +1192,8 @@ function renderOnlineBoard(){
   });
 }
 
-// Override renderBoard/resetEliminations/endTurn/guessMode flows for online
-const _startGuessMode = startGuessMode;
-startGuessMode = function(){
-  if(!onlineMode) return _startGuessMode();
-  if(currentTurn !== myPlayerNumber){
-    showOnlineWait('Not your turn', 'You can only guess on your turn.', true);
-    return;
-  }
-  guessMode = true;
-  showOnlineWait('Guess Mode', 'Tap the character you want to guess.', true);
-};
-
-const _resetEliminations = resetEliminations;
-resetEliminations = function(){
-  if(!onlineMode) return _resetEliminations();
-  eliminated[myPlayerNumber] = new Set();
-  renderOnlineBoard();
-};
-
-const _endTurn = endTurn;
-endTurn = function(){
-  if(!onlineMode) return _endTurn();
-  if(currentTurn !== myPlayerNumber){
-    showOnlineWait('Not your turn', 'Wait for the other player to end their turn.', true);
-    return;
-  }
-  currentTurn = (currentTurn === 1 ? 2 : 1);
-  sendOnline({ type:'TURN', turn: currentTurn });
-  renderOnlineBoard();
-  showOnlineWait('Turn passed', `It is now Player ${currentTurn}'s turn.`, true);
-};
+// Note: Old P2P wrappers removed - they were executing before functions were defined
+// and breaking the game. Socket.IO multiplayer doesn't need these wrappers.
 
 function onlineSendGuess(name){
   if(!onlineMode) return;
