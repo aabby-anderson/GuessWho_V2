@@ -2054,11 +2054,8 @@ function handleRemoteGuess(guesserNum, guessIndex) {
         winner = guesserNum === 1 ? 2 : 1;
     }
     
-    // Show win screen locally on both players
-    win(winner);
-    
-    // Only the guesser emits the win event to avoid duplicate emissions
-    if (isSocketMultiplayer && socket && socketRoomCode && socketPlayerNumber === guesserNum) {
+    // Emit game-won which will be broadcast to both players by the server
+    if (isSocketMultiplayer && socket && socketRoomCode) {
         socket.emit('game-won', { roomCode: socketRoomCode, winner: winner });
     }
 }
