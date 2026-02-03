@@ -355,20 +355,36 @@ async function handleSignup() {
   showMainApp();
 }
 
-function continueAsGuest() {
+async function continueAsGuest() {
   isGuest = true;
   currentUser = { email: 'guest' };
+  await setItem('currentUser', 'guest');
   showMainApp();
 }
 
 async function logout() {
   currentUser = null;
   isGuest = false;
+  
+  // Clear the current user session
   await setItem('currentUser', '');
+  
+  // Show auth screen
   document.getElementById('authScreen').classList.remove('hidden');
   document.getElementById('mainApp').classList.add('hidden');
+  
+  // Clear roster display
   roster = [];
   renderRoster();
+  
+  // Clear form inputs
+  document.getElementById('loginEmail').value = '';
+  document.getElementById('loginPassword').value = '';
+  document.getElementById('signupEmail').value = '';
+  document.getElementById('signupPassword').value = '';
+  document.getElementById('signupPasswordConfirm').value = '';
+  
+  showMessage('success', 'Logged Out', 'You have been logged out successfully.');
 }
 
 async function showMainApp() {
@@ -377,6 +393,15 @@ async function showMainApp() {
   
   await loadRoster();
   renderRoster();
+  
+  // Update logout button text to show current user
+  const logoutBtn = document.querySelector('#rosterBox button[onclick="logout()"]');
+  if (logoutBtn && currentUser) {
+    const displayName = isGuest ? 'Guest' : currentUser.email.split('@')[0];
+    logoutBtn.innerHTML = `👤 ${displayName}<br><span style="font-size:11px;opacity:0.8;">Logout</span>`;
+    logoutBtn.style.minWidth = '120px';
+    logoutBtn.style.lineHeight = '1.3';
+  }
 }
 
 // Check for existing session on load
@@ -396,6 +421,16 @@ window.addEventListener('DOMContentLoaded', async () => {
     showMainApp();
   }
 });
+
+async function cancelAutoLogin() {
+  // Clear the session
+  await setItem('currentUser', '');
+  currentUser = null;
+  isGuest = false;
+  
+  // Reload the page to show fresh login screen
+  location.reload();
+}
 
 async function loadRoster() {
   const key = isGuest ? 'guestRoster' : 'roster_' + currentUser.email;
