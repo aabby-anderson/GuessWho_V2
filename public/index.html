@@ -203,6 +203,28 @@ button.guest:hover{box-shadow: 0 10px 30px rgba(139, 92, 246, 0.6), 0 0 0 1px rg
 </div>
 
 <script>
+// ========================================
+// 🔧 SETUP INSTRUCTIONS
+// ========================================
+// 
+// TO USE TWO-SCREEN MODE:
+// 1. Deploy your server to Render (or another hosting service)
+// 2. Get your server URL from Render (e.g., https://your-app.onrender.com)
+// 3. Update the SERVER_URL below with your actual server URL
+// 4. Make sure your server has CORS enabled for this client
+//
+// DEBUGGING TIPS:
+// - Open browser console (F12) to see connection logs
+// - Check if your server is running on Render
+// - Look for "✅ Connected to server successfully!" message
+// - If you see connection errors, verify the SERVER_URL is correct
+//
+// ========================================
+
+// === SERVER CONFIGURATION ===
+// CHANGE THIS to your Render server URL (e.g., 'https://your-app-name.onrender.com')
+const SERVER_URL = 'https://customguesswho.bsite.net';
+
 // === AUTHENTICATION & STORAGE ===
 let currentUser = null;
 let isGuest = false;
@@ -972,12 +994,27 @@ function restartGame() {
 function initSocketIO() {
   if (socket) return;
   
-  socket = io('https://customguesswho.bsite.net', {
-    transports: ['websocket', 'polling']
+  console.log('Connecting to server:', SERVER_URL);
+  
+  socket = io(SERVER_URL, {
+    transports: ['websocket', 'polling'],
+    reconnection: true,
+    reconnectionDelay: 1000,
+    reconnectionAttempts: 5
   });
   
   socket.on('connect', () => {
-    console.log('Connected to server');
+    console.log('✅ Connected to server successfully!');
+    showMessage('success', 'Connected', 'Successfully connected to game server!');
+  });
+  
+  socket.on('connect_error', (error) => {
+    console.error('❌ Connection error:', error);
+    showMessage('error', 'Connection Failed', `Could not connect to the game server.<br><br><strong>Server:</strong> ${SERVER_URL}<br><br><strong>How to fix:</strong><br>• Check that your Render server is running<br>• Make sure the SERVER_URL at the top of the HTML file matches your Render URL<br>• Check browser console (F12) for more details`);
+  });
+  
+  socket.on('disconnect', () => {
+    console.log('Disconnected from server');
   });
   
   socket.on('player-joined', (data) => {
@@ -1111,11 +1148,16 @@ function createSocketRoom() {
 
 function createSocketRoomAfterConnection(selectedChars) {
     if (!socket || !socket.connected) {
-        showMessage('error', 'Connection Error', 'Unable to connect to the game server.<br><br><strong>How to fix:</strong><br>• Check your internet connection<br>• Try again in a moment<br>• The server might be temporarily unavailable');
+        console.error('Socket not connected. Socket exists:', !!socket, 'Connected:', socket?.connected);
+        showMessage('error', 'Connection Error', `Unable to connect to the game server.<br><br><strong>Server:</strong> ${SERVER_URL}<br><br><strong>Debug info:</strong><br>• Socket exists: ${!!socket}<br>• Socket connected: ${socket?.connected || false}<br><br><strong>How to fix:</strong><br>• Check your internet connection<br>• Verify your Render server is running<br>• Open browser console (F12) to see detailed error messages<br>• Make sure CORS is enabled on your server`);
         return;
     }
     
+    console.log('Emitting create-room event...');
+    
     socket.emit('create-room', (response) => {
+        console.log('Create room response:', response);
+        
         if (response && response.success) {
             socketRoomCode = response.roomCode;
             socketPlayerNumber = 1;
@@ -1189,11 +1231,15 @@ function joinSocketRoom() {
 
 function joinSocketRoomAfterConnection(code) {
     if (!socket || !socket.connected) {
-        showMessage('error', 'Connection Error', 'Unable to connect to the game server.<br><br><strong>How to fix:</strong><br>• Check your internet connection<br>• Try again in a moment<br>• The server might be temporarily unavailable');
+        console.error('Socket not connected. Socket exists:', !!socket, 'Connected:', socket?.connected);
+        showMessage('error', 'Connection Error', `Unable to connect to the game server.<br><br><strong>Server:</strong> ${SERVER_URL}<br><br><strong>Debug info:</strong><br>• Socket exists: ${!!socket}<br>• Socket connected: ${socket?.connected || false}<br><br><strong>How to fix:</strong><br>• Check your internet connection<br>• Verify your Render server is running<br>• Open browser console (F12) to see detailed error messages<br>• Make sure CORS is enabled on your server`);
         return;
     }
     
+    console.log('Emitting join-room event with code:', code);
+    
     socket.emit('join-room', code, (response) => {
+        console.log('Join room response:', response);
         if (response && response.success) {
             socketRoomCode = response.roomCode;
             socketPlayerNumber = response.playerNumber;
