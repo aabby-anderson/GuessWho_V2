@@ -1192,32 +1192,37 @@ function renderOnlineBoard(){
   });
 }
 
-// Note: Old P2P wrappers for startGuessMode, resetEliminations, and endTurn removed
-// since they were breaking the functions and aren't needed for Socket.IO multiplayer
+// Override renderBoard/resetEliminations/endTurn/guessMode flows for online
+const _startGuessMode = startGuessMode;
+startGuessMode = function(){
+  if(!onlineMode) return _startGuessMode();
+  if(currentTurn !== myPlayerNumber){
+    showOnlineWait('Not your turn', 'You can only guess on your turn.', true);
+    return;
+  }
+  guessMode = true;
+  showOnlineWait('Guess Mode', 'Tap the character you want to guess.', true);
+};
 
-const _resetEliminations = typeof resetEliminations !== 'undefined' ? resetEliminations : null;
-if (_resetEliminations) {
-  resetEliminations = function(){
-    if(!onlineMode) return _resetEliminations();
-    eliminated[myPlayerNumber] = new Set();
-    renderOnlineBoard();
-  };
-}
+const _resetEliminations = resetEliminations;
+resetEliminations = function(){
+  if(!onlineMode) return _resetEliminations();
+  eliminated[myPlayerNumber] = new Set();
+  renderOnlineBoard();
+};
 
-const _endTurn = typeof endTurn !== 'undefined' ? endTurn : null;
-if (_endTurn) {
-  endTurn = function(){
-    if(!onlineMode) return _endTurn();
-    if(currentTurn !== myPlayerNumber){
-      showOnlineWait('Not your turn', 'Wait for the other player to end their turn.', true);
-      return;
-    }
-    currentTurn = (currentTurn === 1 ? 2 : 1);
-    sendOnline({ type:'TURN', turn: currentTurn });
-    renderOnlineBoard();
-    showOnlineWait('Turn passed', `It is now Player ${currentTurn}'s turn.`, true);
-  };
-}
+const _endTurn = endTurn;
+endTurn = function(){
+  if(!onlineMode) return _endTurn();
+  if(currentTurn !== myPlayerNumber){
+    showOnlineWait('Not your turn', 'Wait for the other player to end their turn.', true);
+    return;
+  }
+  currentTurn = (currentTurn === 1 ? 2 : 1);
+  sendOnline({ type:'TURN', turn: currentTurn });
+  renderOnlineBoard();
+  showOnlineWait('Turn passed', `It is now Player ${currentTurn}'s turn.`, true);
+};
 
 function onlineSendGuess(name){
   if(!onlineMode) return;
@@ -1625,36 +1630,13 @@ function renderBoard(){
     });
 }
 
-function startGuessMode(){ 
-    console.log('startGuessMode called! guessMode before:', guessMode);
-    guessMode=true; 
-    console.log('guessMode set to true');
-    // Update the secret display to show guess mode message
-    const secretDisplay = document.getElementById('secretDisplay');
-    console.log('secretDisplay element:', secretDisplay);
-    if (secretDisplay) {
-        secretDisplay.textContent = '👆 Click a person to make your guess!';
-        secretDisplay.style.background = 'linear-gradient(135deg, #fbbf24 0%, #f59e0b 100%)';
-        secretDisplay.style.color = '#78350f';
-        secretDisplay.style.borderColor = 'rgba(251, 191, 36, 0.5)';
-        secretDisplay.style.animation = 'pulse 2s ease-in-out infinite';
-        console.log('Secret display updated successfully');
-    } else {
-        console.error('SECRET DISPLAY ELEMENT NOT FOUND!');
-    }
-    console.log('startGuessMode completed');
-}
+function startGuessMode(){ guessMode=true; alert('Tap the character you want to guess!'); }
 
 function checkGuess(name){ 
     guessMode=false; 
     const opp=currentTurn===1?secret2:secret1; 
     if(name===opp.name){ 
-        // Use showWinner which handles socket emission
-        if (isSocketMultiplayer) {
-            showWinner(currentTurn);
-        } else {
-            win(currentTurn);
-        }
+        win(currentTurn); 
     } else { 
         wrongScreen.style.display='flex';
     } 
@@ -1662,16 +1644,14 @@ function checkGuess(name){
 
 function continueAfterWrong() {
     wrongScreen.style.display='none';
-    guessMode = false; // Make sure guess mode is off
     endTurn();
 }
 
 function resetEliminations(){ eliminated[currentTurn]=new Set(); renderBoard(); }
 function endTurn(){ 
-    // In two-screen mode, skip the pass screen
     if (isSocketMultiplayer) {
+        // In two-screen mode, don't show pass screen
         currentTurn = currentTurn === 1 ? 2 : 1;
-        renderBoard();
     } else {
         // In same-phone mode, show pass screen
         showPass(`Pass to Player ${currentTurn===1?2:1}`); 
@@ -2062,38 +2042,21 @@ function checkIfBothSecretsPicked() {
 function handleRemoteGuess(guesserNum, guessIndex) {
     const opponentSecret = guesserNum === 1 ? secret2 : secret1;
     
-    // Find the index of the opponent's secret in the gameRoster
-    const secretIndex = gameRoster.findIndex(p => p.id === opponentSecret.id);
-    
-    let winner;
-    if (guessIndex === secretIndex) {
-        // Correct guess!
-        winner = guesserNum;
+    if (guessIndex === opponentSecret) {
+        showWinner(guesserNum);
     } else {
-        // Wrong guess - opponent wins
-        winner = guesserNum === 1 ? 2 : 1;
-    }
-    
-    // Emit the win event so both players receive it
-    if (socket && socketRoomCode) {
-        socket.emit('game-won', { 
-            roomCode: socketRoomCode, 
-            winner: winner 
-        });
+        const actualWinner = guesserNum === 1 ? 2 : 1;
+        showWinner(actualWinner);
     }
 }
 
-// Create showWinner function that handles both local and socket multiplayer
 function showWinner(playerNum) {
-    // Emit win to socket if in multiplayer mode
-    if (isSocketMultiplayer && socket && socketRoomCode) {
-        socket.emit('game-won', { 
-            roomCode: socketRoomCode, 
-            winner: playerNum 
-        });
-    }
-    // Show the win screen locally
+    // Show win screen locally
     win(playerNum);
+    // Emit to socket so other player sees it too
+    if (isSocketMultiplayer && socket && socketRoomCode) {
+        socket.emit('game-won', { roomCode: socketRoomCode, winner: playerNum });
+    }
 }
 
 // Override startGame to add Socket.IO support
@@ -2291,34 +2254,22 @@ if (originalRenderBoard) {
             turnTitle.style.background = 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)';
         }
         
-        // Update the end turn button text based on game mode
+        // Update end turn button text based on mode
         const endTurnBtn = document.getElementById('endTurnBtn');
         if (endTurnBtn) {
             endTurnBtn.textContent = isSocketMultiplayer ? 'End Turn' : 'Pass Phone';
         }
         
-        // Show different message based on turn and guess mode
-        if (guessMode) {
-            secretDisplay.textContent = '👆 Click a person to make your guess!';
-            secretDisplay.style.background = 'linear-gradient(135deg, #fbbf24 0%, #f59e0b 100%)';
-            secretDisplay.style.color = '#78350f';
-            secretDisplay.style.borderColor = 'rgba(251, 191, 36, 0.5)';
-            secretDisplay.style.opacity = '1';
-        } else if (isSocketMultiplayer && !isMyTurn) {
+        // Show different message based on turn
+        if (isSocketMultiplayer && !isMyTurn) {
             secretDisplay.textContent=`Your Secret: ${mySecret.name} (Waiting...)`;
             secretDisplay.style.opacity = '0.6';
-            secretDisplay.style.background = 'rgba(16, 185, 129, 0.1)';
-            secretDisplay.style.color = '#10b981';
-            secretDisplay.style.borderColor = 'rgba(16, 185, 129, 0.3)';
         } else {
             secretDisplay.textContent=`Your Secret: ${mySecret.name}`;
             secretDisplay.style.opacity = '1';
-            secretDisplay.style.background = 'rgba(16, 185, 129, 0.1)';
-            secretDisplay.style.color = '#10b981';
-            secretDisplay.style.borderColor = 'rgba(16, 185, 129, 0.3)';
         }
         
-        gameRoster.forEach((p, index)=>{
+        gameRoster.forEach(p=>{
             const c=document.createElement('div');
             c.className='card';
             if(eliminated[currentTurn].has(p.name)) c.classList.add('eliminated');
@@ -2329,22 +2280,11 @@ if (originalRenderBoard) {
                 c.style.opacity = '0.5';
                 c.style.cursor = 'not-allowed';
                 c.onclick = () => {
-                    // Don't do anything - player must wait for their turn
-                    return false;
+                    alert(`It's Player ${currentTurn}'s turn! Please wait.`);
                 };
             } else {
                 c.onclick=()=>{
-                    if(guessMode){ 
-                        // In socket multiplayer, use makeGuess with index
-                        if(isSocketMultiplayer) {
-                            makeGuess(index);
-                        } else {
-                            checkGuess(p.name); 
-                        }
-                    } else { 
-                        eliminated[currentTurn].has(p.name)?eliminated[currentTurn].delete(p.name):eliminated[currentTurn].add(p.name); 
-                        c.classList.toggle('eliminated'); 
-                    }
+                    if(guessMode){ checkGuess(p.name); } else { eliminated[currentTurn].has(p.name)?eliminated[currentTurn].delete(p.name):eliminated[currentTurn].add(p.name); c.classList.toggle('eliminated'); }
                 };
             }
             
@@ -2371,12 +2311,11 @@ function updateButtonStates(isMyTurn) {
             btn.disabled = true;
             btn.style.opacity = '0.5';
             btn.style.cursor = 'not-allowed';
-            btn.style.pointerEvents = 'none'; // Prevent any clicks
         } else {
             btn.disabled = false;
             btn.style.opacity = '1';
             btn.style.cursor = 'pointer';
-            btn.style.pointerEvents = 'auto'; // Re-enable clicks
+            // Restore original onclick (will be set by original game code)
         }
     });
 }
@@ -2386,36 +2325,33 @@ if (originalEndTurn) {
     window.endTurn = function() {
         if (isSocketMultiplayer && socket && socketRoomCode) {
             socket.emit('end-turn', { roomCode: socketRoomCode });
-            currentTurn = currentTurn === 1 ? 2 : 1;
-            guessMode = false;
-            renderBoard();
-        } else {
-            // Use original endTurn for same-phone mode
-            originalEndTurn();
         }
+        currentTurn = currentTurn === 1 ? 2 : 1;
+        guessMode = false;
+        renderBoard();
     };
 }
 
-// Create makeGuess function for handling guesses by index (used in socket multiplayer)
-window.makeGuess = function(index) {
-    if (isSocketMultiplayer && socket && socketRoomCode) {
-        // In socket multiplayer, just emit - let the server broadcast back to both players
-        socket.emit('make-guess', {
-            roomCode: socketRoomCode,
-            playerNumber: currentTurn,
-            guessIndex: index
-        });
-        // Don't show winner locally - wait for server broadcast
-        guessMode = false;
-        return;
-    }
-    
-    // Local game logic (same-phone mode) - convert index to person
-    const guessedPerson = gameRoster[index];
-    if (guessedPerson) {
-        checkGuess(guessedPerson.name);
-    }
-};
+const originalMakeGuess = typeof makeGuess !== 'undefined' ? makeGuess : null;
+if (originalMakeGuess) {
+    window.makeGuess = function(index) {
+        if (isSocketMultiplayer && socket && socketRoomCode) {
+            socket.emit('make-guess', {
+                roomCode: socketRoomCode,
+                playerNumber: currentTurn,
+                guessIndex: index
+            });
+        }
+        
+        const opponentSecret = currentTurn === 1 ? secret2 : secret1;
+        
+        if (index === opponentSecret) {
+            showWinner(currentTurn);
+        } else {
+            document.getElementById('wrongScreen').style.display = 'flex';
+        }
+    };
+}
 
 // Add Socket multiplayer button to the UI - REMOVED (already in HTML)
 
