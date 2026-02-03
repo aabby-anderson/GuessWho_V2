@@ -1989,13 +1989,13 @@ function initSocketIO() {
     
     socket.on('eliminated-synced', (data) => {
         eliminated[data.playerNumber] = new Set(data.eliminated);
-        renderGame();
+        renderBoard();
     });
     
     socket.on('turn-ended', () => {
         currentTurn = currentTurn === 1 ? 2 : 1;
         guessMode = false;
-        renderGame();
+        renderBoard();
     });
     
     socket.on('guess-made', (data) => {
@@ -2020,6 +2020,9 @@ function initSocketIO() {
 
 function checkIfBothSecretsPicked() {
     if (secret1 !== null && secret2 !== null) {
+        // Hide the waiting screen
+        hidePickWaitingScreen();
+        
         waitingForNextPicker = false;
         document.getElementById('pickBox').classList.add('hidden');
         document.getElementById('gameBox').classList.remove('hidden');
@@ -2127,6 +2130,9 @@ if (originalConfirmPick) {
                 secretCard: selectedCard
             });
             
+            // Show waiting screen for multiplayer
+            showPickWaitingScreen();
+            
             // For multiplayer, just wait for both picks
             checkIfBothSecretsPicked();
         } else {
@@ -2145,6 +2151,40 @@ if (originalConfirmPick) {
     };
 }
 
+function showPickWaitingScreen() {
+    // Determine who we're waiting for
+    const waitingFor = socketPlayerNumber === 1 ? 2 : 1;
+    
+    // Create or update waiting screen
+    let waitingScreen = document.getElementById('pickWaitingScreen');
+    if (!waitingScreen) {
+        waitingScreen = document.createElement('div');
+        waitingScreen.id = 'pickWaitingScreen';
+        waitingScreen.className = 'pass-screen';
+        waitingScreen.style.display = 'flex';
+        waitingScreen.style.zIndex = '1500';
+        document.body.appendChild(waitingScreen);
+    }
+    
+    waitingScreen.innerHTML = `
+        <div style="text-align:center;">
+            <div style="font-size:64px;margin-bottom:20px;">⏳</div>
+            <h1 style="margin-bottom:16px;">Selection Confirmed!</h1>
+            <p style="font-size:18px;color:#cbd5e1;max-width:400px;">
+                Waiting for Player ${waitingFor} to pick their character...
+            </p>
+        </div>
+    `;
+    waitingScreen.style.display = 'flex';
+}
+
+function hidePickWaitingScreen() {
+    const waitingScreen = document.getElementById('pickWaitingScreen');
+    if (waitingScreen) {
+        waitingScreen.style.display = 'none';
+    }
+}
+
 const originalEliminate = typeof eliminate !== 'undefined' ? eliminate : null;
 if (originalEliminate) {
     window.eliminate = function(index) {
@@ -2153,7 +2193,7 @@ if (originalEliminate) {
         }
         
         eliminated[currentTurn].add(index);
-        renderGame();
+        renderBoard();
         
         if (isSocketMultiplayer && socket && socketRoomCode) {
             socket.emit('sync-eliminated', {
@@ -2165,6 +2205,36 @@ if (originalEliminate) {
     };
 }
 
+// Wrapper for renderBoard to show correct secret in multiplayer
+const originalRenderBoard = typeof renderBoard !== 'undefined' ? renderBoard : null;
+if (originalRenderBoard) {
+    window.renderBoard = function() {
+        boardGrid.innerHTML='';
+        
+        // In multiplayer, show YOUR secret, not the current turn's secret
+        let mySecret;
+        if (isSocketMultiplayer) {
+            mySecret = socketPlayerNumber === 1 ? secret1 : secret2;
+        } else {
+            mySecret = currentTurn === 1 ? secret1 : secret2;
+        }
+        
+        turnTitle.textContent=`Player ${currentTurn} Turn`;
+        secretDisplay.textContent=`Your Secret: ${mySecret.name}`;
+        
+        gameRoster.forEach(p=>{
+            const c=document.createElement('div');
+            c.className='card';
+            if(eliminated[currentTurn].has(p.name)) c.classList.add('eliminated');
+            c.innerHTML=`<img src="${p.img}"><div class="name">${p.name}</div>`;
+            c.onclick=()=>{
+                if(guessMode){ checkGuess(p.name); } else { eliminated[currentTurn].has(p.name)?eliminated[currentTurn].delete(p.name):eliminated[currentTurn].add(p.name); c.classList.toggle('eliminated'); }
+            };
+            boardGrid.appendChild(c);
+        });
+    };
+}
+
 const originalEndTurn = typeof endTurn !== 'undefined' ? endTurn : null;
 if (originalEndTurn) {
     window.endTurn = function() {
@@ -2173,7 +2243,7 @@ if (originalEndTurn) {
         }
         currentTurn = currentTurn === 1 ? 2 : 1;
         guessMode = false;
-        renderGame();
+        renderBoard();
     };
 }
 
