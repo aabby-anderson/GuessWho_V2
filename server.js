@@ -76,8 +76,9 @@ io.on('connection', (socket) => {
 
     // Start the game (from roster screen)
     socket.on('start-game', (data) => {
-        const { roomCode } = data;
-        socket.to(roomCode).emit('game-started');
+        const { roomCode, gameRoster } = data;
+        console.log(`Game starting in room ${roomCode} with ${gameRoster?.length || 0} people`);
+        socket.to(roomCode).emit('game-started', { gameRoster });
     });
 
     // Player picks their secret person
