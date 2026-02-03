@@ -2054,12 +2054,12 @@ function handleRemoteGuess(guesserNum, guessIndex) {
         winner = guesserNum === 1 ? 2 : 1;
     }
     
-    // Only the guesser emits the win event (to avoid duplicate emissions)
-    if (socketPlayerNumber === guesserNum) {
-        showWinner(winner);
-    } else {
-        // The other player just shows the win screen locally
-        win(winner);
+    // Show win screen locally on both players
+    win(winner);
+    
+    // Only the guesser emits the win event to avoid duplicate emissions
+    if (isSocketMultiplayer && socket && socketRoomCode && socketPlayerNumber === guesserNum) {
+        socket.emit('game-won', { roomCode: socketRoomCode, winner: winner });
     }
 }
 
@@ -2354,8 +2354,11 @@ if (originalMakeGuess) {
                 playerNumber: currentTurn,
                 guessIndex: index
             });
+            // Don't handle win/loss locally - let handleRemoteGuess do it when server broadcasts back
+            return;
         }
         
+        // Same-phone mode - handle locally
         const opponentSecret = currentTurn === 1 ? secret2 : secret1;
         
         if (index === opponentSecret) {
