@@ -98,6 +98,12 @@ button.guest:hover{box-shadow: 0 10px 30px rgba(139, 92, 246, 0.6), 0 0 0 1px rg
 
 <div id="mainApp" class="hidden">
 
+<!-- Error/Info Message Bar -->
+<div id="messageBar" style="display:none;position:fixed;top:20px;left:50%;transform:translateX(-50%);max-width:600px;width:90%;z-index:2000;padding:16px 20px;border-radius:14px;box-shadow:0 10px 40px rgba(0,0,0,0.3);backdrop-filter:blur(10px);font-size:15px;font-weight:600;text-align:center;">
+  <div id="messageContent"></div>
+  <button onclick="hideMessage()" style="margin-top:12px;min-width:100px;padding:8px 16px;font-size:14px;">Got it</button>
+</div>
+
 <h1>🎮 Custom Guess Who – Two Player</h1>
 
 <div id="rosterBox" class="box">
@@ -416,13 +422,62 @@ async function saveRoster() {
     await setItem(key, data);
   } catch (error) {
     if (error.name === 'QuotaExceededError' || error.message.includes('quota')) {
-      alert(`Storage quota exceeded! Your roster is too large (${sizeKB} KB).\n\nTips:\n- Delete some people from your roster\n- Use smaller/lower quality images\n- The images are automatically compressed, but very large rosters may still exceed limits`);
+      showMessage('error', `Storage Full!`, `Your roster is too large (${sizeKB} KB).<br><br><strong>How to fix:</strong><br>• Delete some people from your roster<br>• The images are automatically compressed to save space<br>• ${useLocalStorage ? 'Your browser is using limited localStorage. Try a different browser for more space.' : 'You may need to clear some space.'}`);
       throw error;
     } else {
       console.error('Error saving roster:', error);
       throw error;
     }
   }
+}
+
+// === MESSAGE DISPLAY SYSTEM ===
+function showMessage(type, title, message) {
+  const messageBar = document.getElementById('messageBar');
+  const messageContent = document.getElementById('messageContent');
+  
+  let bgColor, textColor, icon;
+  
+  if (type === 'error') {
+    bgColor = 'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)';
+    textColor = 'white';
+    icon = '⚠️';
+  } else if (type === 'warning') {
+    bgColor = 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)';
+    textColor = 'white';
+    icon = '⚠️';
+  } else if (type === 'success') {
+    bgColor = 'linear-gradient(135deg, #10b981 0%, #059669 100%)';
+    textColor = 'white';
+    icon = '✅';
+  } else {
+    bgColor = 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)';
+    textColor = 'white';
+    icon = 'ℹ️';
+  }
+  
+  messageBar.style.background = bgColor;
+  messageBar.style.color = textColor;
+  
+  messageContent.innerHTML = `
+    <div style="font-size:24px;margin-bottom:8px;">${icon}</div>
+    <div style="font-size:18px;font-weight:800;margin-bottom:8px;">${title}</div>
+    <div style="font-size:14px;font-weight:500;line-height:1.5;opacity:0.95;">${message}</div>
+  `;
+  
+  messageBar.style.display = 'block';
+  
+  // Auto-hide success messages after 3 seconds
+  if (type === 'success') {
+    setTimeout(() => {
+      hideMessage();
+    }, 3000);
+  }
+}
+
+function hideMessage() {
+  const messageBar = document.getElementById('messageBar');
+  messageBar.style.display = 'none';
 }
 
 // === GAME STATE ===
@@ -490,11 +545,11 @@ async function addCharacter() {
   const name = nameInput.value.trim();
   const file = imgInput.files[0];
   if (!name) {
-    alert('Please enter a name');
+    showMessage('error', 'Missing Name', 'Please enter a name for this person before adding them to your roster.');
     return;
   }
   if (!file) {
-    alert('Please select an image');
+    showMessage('error', 'Missing Image', 'Please select an image for this person.<br><br><strong>How to add an image:</strong><br>• Click the "📷 Choose Image" button<br>• Select a photo from your device');
     return;
   }
   
@@ -506,9 +561,10 @@ async function addCharacter() {
     renderRoster();
     nameInput.value = '';
     imgInput.value = '';
+    showMessage('success', 'Person Added!', `${name} has been added to your roster.`);
   } catch (error) {
     console.error('Error processing image:', error);
-    alert('Failed to process image. Please try another image.');
+    showMessage('error', 'Image Error', 'Failed to process this image.<br><br><strong>How to fix:</strong><br>• Try a different image<br>• Make sure the file is a valid image (JPG, PNG, etc.)<br>• The image might be corrupted');
   }
 }
 
@@ -572,18 +628,35 @@ function toggleSelect(index) {
 }
 
 function deleteCharacter(index) {
-  if (confirm(`Delete ${roster[index].name}?`)) {
+  const name = roster[index].name;
+  showMessage('warning', 'Delete Person?', `Are you sure you want to delete <strong>${name}</strong> from your roster?<br><br>This cannot be undone.`);
+  
+  // Change the button to confirm deletion
+  const messageBar = document.getElementById('messageBar');
+  const button = messageBar.querySelector('button');
+  button.textContent = 'Cancel';
+  button.onclick = () => hideMessage();
+  
+  // Add a delete button
+  const deleteBtn = document.createElement('button');
+  deleteBtn.textContent = 'Delete';
+  deleteBtn.className = 'danger';
+  deleteBtn.style.marginLeft = '10px';
+  deleteBtn.onclick = () => {
     roster.splice(index, 1);
     saveRoster();
     renderRoster();
-  }
+    hideMessage();
+    showMessage('success', 'Deleted', `${name} has been removed from your roster.`);
+  };
+  button.parentNode.appendChild(deleteBtn);
 }
 
 // === GAME FLOW ===
 function beginSetup() {
   gamePool = roster.filter(c => c.selected);
   if (gamePool.length < 2) {
-    alert('Select at least 2 people');
+    showMessage('error', 'Not Enough People Selected', 'You need to select at least 2 people to play.<br><br><strong>How to select people:</strong><br>• Click on people in your roster (they will have a green border)<br>• Select at least 2 people<br>• Then click "Start Game"');
     return;
   }
   
@@ -754,30 +827,77 @@ function passPhone() {
 function makeGuess() {
   // In socket multiplayer, only allow current player to guess
   if (isSocketMultiplayer && socketPlayerNumber !== currentPlayer) {
-    alert("It's not your turn!");
+    showMessage('error', 'Not Your Turn', "You can't make a guess when it's not your turn!<br><br><strong>Wait for:</strong><br>• The other player to end their turn<br>• The turn indicator to show your name");
     return;
   }
   
   const opponentSecret = currentPlayer === 1 ? p2secret : p1secret;
-  const guess = prompt(`Who do you think Player ${currentPlayer === 1 ? 2 : 1}'s person is?`);
-  if (!guess) return;
   
-  const correct = guess.trim().toLowerCase() === opponentSecret.name.toLowerCase();
+  // Show custom guess input
+  showMessage('info', '🎯 Make Your Guess', `Who do you think Player ${currentPlayer === 1 ? 2 : 1}'s person is?<br><br>Type their name below:`);
   
-  if (correct) {
-    showWinScreen(currentPlayer, opponentSecret.name);
-    
-    // Emit win to server if in socket multiplayer
-    if (isSocketMultiplayer && socket) {
-      socket.emit('player-won', {
-        roomCode: socketRoomCode,
-        winner: currentPlayer,
-        secretName: opponentSecret.name
-      });
+  const messageBar = document.getElementById('messageBar');
+  const messageContent = document.getElementById('messageContent');
+  
+  // Add input field
+  const input = document.createElement('input');
+  input.type = 'text';
+  input.placeholder = 'Enter name...';
+  input.style.cssText = 'width:100%;padding:12px;border-radius:10px;border:2px solid rgba(255,255,255,0.3);background:rgba(255,255,255,0.95);margin:12px 0;font-size:16px;color:#1f2937;';
+  messageContent.appendChild(input);
+  input.focus();
+  
+  // Update buttons
+  const existingButtons = messageBar.querySelectorAll('button');
+  existingButtons.forEach(b => b.remove());
+  
+  const buttonContainer = document.createElement('div');
+  buttonContainer.style.cssText = 'display:flex;gap:10px;justify-content:center;margin-top:12px;';
+  
+  const cancelBtn = document.createElement('button');
+  cancelBtn.textContent = 'Cancel';
+  cancelBtn.className = 'secondary';
+  cancelBtn.onclick = () => hideMessage();
+  
+  const guessBtn = document.createElement('button');
+  guessBtn.textContent = 'Submit Guess';
+  guessBtn.className = 'guess';
+  guessBtn.onclick = () => {
+    const guess = input.value.trim();
+    if (!guess) {
+      input.style.borderColor = '#ef4444';
+      return;
     }
-  } else {
-    alert('Wrong guess! Game continues.');
-  }
+    
+    const correct = guess.toLowerCase() === opponentSecret.name.toLowerCase();
+    hideMessage();
+    
+    if (correct) {
+      showWinScreen(currentPlayer, opponentSecret.name);
+      
+      // Emit win to server if in socket multiplayer
+      if (isSocketMultiplayer && socket) {
+        socket.emit('player-won', {
+          roomCode: socketRoomCode,
+          winner: currentPlayer,
+          secretName: opponentSecret.name
+        });
+      }
+    } else {
+      showMessage('error', 'Wrong Guess!', `That's not correct. The game continues.<br><br><strong>Keep playing:</strong><br>• Ask more questions<br>• Eliminate more people<br>• Try guessing again when you're sure`);
+    }
+  };
+  
+  buttonContainer.appendChild(cancelBtn);
+  buttonContainer.appendChild(guessBtn);
+  messageBar.appendChild(buttonContainer);
+  
+  // Allow Enter key to submit
+  input.addEventListener('keypress', (e) => {
+    if (e.key === 'Enter') {
+      guessBtn.click();
+    }
+  });
 }
 
 function showWinScreen(winner, secretName) {
@@ -914,7 +1034,7 @@ function initSocketIO() {
   });
   
   socket.on('error', (data) => {
-    alert(data.message);
+    showMessage('error', 'Game Error', data.message || 'An error occurred during the game.<br><br>You may need to restart the game.');
   });
 }
 
@@ -937,14 +1057,31 @@ function switchSocketTab(tab) {
 function createSocketRoom() {
     const selectedChars = roster.filter(c => c.selected);
     if (selectedChars.length < 2) {
-        alert('Please select at least 2 people for the game');
+        showMessage('error', 'Not Enough People Selected', 'You need to select at least 2 people for the game.<br><br><strong>How to fix:</strong><br>• Go back to your roster<br>• Click on people to select them (green border)<br>• Select at least 2 people<br>• Then try creating a room again');
         return;
     }
     
-    if (!socket) initSocketIO();
+    // Initialize socket if needed and wait for connection
+    if (!socket) {
+        initSocketIO();
+        // Wait a moment for socket to connect
+        setTimeout(() => createSocketRoomAfterConnection(selectedChars), 1000);
+    } else if (!socket.connected) {
+        // Socket exists but not connected, wait for connection
+        setTimeout(() => createSocketRoomAfterConnection(selectedChars), 1000);
+    } else {
+        createSocketRoomAfterConnection(selectedChars);
+    }
+}
+
+function createSocketRoomAfterConnection(selectedChars) {
+    if (!socket || !socket.connected) {
+        showMessage('error', 'Connection Error', 'Unable to connect to the game server.<br><br><strong>How to fix:</strong><br>• Check your internet connection<br>• Try again in a moment<br>• The server might be temporarily unavailable');
+        return;
+    }
     
     socket.emit('create-room', (response) => {
-        if (response.success) {
+        if (response && response.success) {
             socketRoomCode = response.roomCode;
             socketPlayerNumber = 1;
             isSocketMultiplayer = true;
@@ -990,6 +1127,8 @@ function createSocketRoom() {
                 </div>
             `;
             rosterBox.insertBefore(instructionDiv, rosterBox.firstChild);
+        } else {
+            showMessage('error', 'Failed to Create Room', (response && response.error) || 'An unknown error occurred.<br><br><strong>Try:</strong><br>• Check your internet connection<br>• Try again in a moment');
         }
     });
 }
@@ -998,14 +1137,29 @@ function joinSocketRoom() {
     const code = document.getElementById('socketRoomInput').value.trim().toUpperCase();
     
     if (code.length !== 6) {
-        alert('Please enter a 6-character code');
+        showMessage('error', 'Invalid Room Code', 'The room code must be exactly 6 characters.<br><br><strong>How to fix:</strong><br>• Ask Player 1 for the complete 6-character code<br>• Make sure you entered all 6 characters');
         return;
     }
     
-    if (!socket) initSocketIO();
+    // Initialize socket if needed
+    if (!socket) {
+        initSocketIO();
+        setTimeout(() => joinSocketRoomAfterConnection(code), 1000);
+    } else if (!socket.connected) {
+        setTimeout(() => joinSocketRoomAfterConnection(code), 1000);
+    } else {
+        joinSocketRoomAfterConnection(code);
+    }
+}
+
+function joinSocketRoomAfterConnection(code) {
+    if (!socket || !socket.connected) {
+        showMessage('error', 'Connection Error', 'Unable to connect to the game server.<br><br><strong>How to fix:</strong><br>• Check your internet connection<br>• Try again in a moment<br>• The server might be temporarily unavailable');
+        return;
+    }
     
     socket.emit('join-room', code, (response) => {
-        if (response.success) {
+        if (response && response.success) {
             socketRoomCode = response.roomCode;
             socketPlayerNumber = response.playerNumber;
             isSocketMultiplayer = true;
@@ -1032,7 +1186,7 @@ function joinSocketRoom() {
             waitingModal.id = 'socketWaitingModal';
             document.body.appendChild(waitingModal);
         } else {
-            alert(response.error || 'Failed to join room');
+            showMessage('error', 'Failed to Join Room', (response && response.error) || 'Could not join this room.<br><br><strong>Possible reasons:</strong><br>• The room code is incorrect<br>• The room is full<br>• The room no longer exists<br><br>Double-check the code with Player 1');
         }
     });
 }
