@@ -2219,20 +2219,85 @@ if (originalRenderBoard) {
             mySecret = currentTurn === 1 ? secret1 : secret2;
         }
         
-        turnTitle.textContent=`Player ${currentTurn} Turn`;
-        secretDisplay.textContent=`Your Secret: ${mySecret.name}`;
+        // Check if it's this player's turn in multiplayer
+        const isMyTurn = !isSocketMultiplayer || (currentTurn === socketPlayerNumber);
+        
+        // Update turn title with better visual feedback
+        if (isSocketMultiplayer) {
+            if (isMyTurn) {
+                turnTitle.textContent=`🎮 Your Turn (Player ${currentTurn})`;
+                turnTitle.style.background = 'linear-gradient(135deg, #10b981 0%, #059669 100%)';
+            } else {
+                turnTitle.textContent=`⏳ Player ${currentTurn}'s Turn (Waiting...)`;
+                turnTitle.style.background = 'linear-gradient(135deg, #6b7280 0%, #4b5563 100%)';
+            }
+        } else {
+            turnTitle.textContent=`Player ${currentTurn} Turn`;
+            turnTitle.style.background = 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)';
+        }
+        
+        // Show different message based on turn
+        if (isSocketMultiplayer && !isMyTurn) {
+            secretDisplay.textContent=`Your Secret: ${mySecret.name} (Waiting...)`;
+            secretDisplay.style.opacity = '0.6';
+        } else {
+            secretDisplay.textContent=`Your Secret: ${mySecret.name}`;
+            secretDisplay.style.opacity = '1';
+        }
         
         gameRoster.forEach(p=>{
             const c=document.createElement('div');
             c.className='card';
             if(eliminated[currentTurn].has(p.name)) c.classList.add('eliminated');
             c.innerHTML=`<img src="${p.img}"><div class="name">${p.name}</div>`;
-            c.onclick=()=>{
-                if(guessMode){ checkGuess(p.name); } else { eliminated[currentTurn].has(p.name)?eliminated[currentTurn].delete(p.name):eliminated[currentTurn].add(p.name); c.classList.toggle('eliminated'); }
-            };
+            
+            // Disable clicking if not your turn in multiplayer
+            if (isSocketMultiplayer && !isMyTurn) {
+                c.style.opacity = '0.5';
+                c.style.cursor = 'not-allowed';
+                c.onclick = () => {
+                    alert(`It's Player ${currentTurn}'s turn! Please wait.`);
+                };
+            } else {
+                c.onclick=()=>{
+                    if(guessMode){ checkGuess(p.name); } else { eliminated[currentTurn].has(p.name)?eliminated[currentTurn].delete(p.name):eliminated[currentTurn].add(p.name); c.classList.toggle('eliminated'); }
+                };
+            }
+            
             boardGrid.appendChild(c);
         });
+        
+        // Disable/enable buttons based on turn
+        updateButtonStates(isMyTurn);
     };
+}
+
+function updateButtonStates(isMyTurn) {
+    if (!isSocketMultiplayer) return; // Only for multiplayer
+    
+    // Find all game control buttons
+    const guessBtn = document.querySelector('.guess');
+    const resetBtn = document.querySelector('#gameBox .controls .secondary');
+    const passBtn = document.querySelector('#gameBox .controls button:not(.guess):not(.secondary)');
+    
+    const buttons = [guessBtn, resetBtn, passBtn].filter(btn => btn);
+    
+    buttons.forEach(btn => {
+        if (!isMyTurn) {
+            btn.disabled = true;
+            btn.style.opacity = '0.5';
+            btn.style.cursor = 'not-allowed';
+            btn.onclick = (e) => {
+                e.preventDefault();
+                alert(`It's Player ${currentTurn}'s turn! Please wait.`);
+            };
+        } else {
+            btn.disabled = false;
+            btn.style.opacity = '1';
+            btn.style.cursor = 'pointer';
+            // Restore original onclick (will be set by original game code)
+        }
+    });
 }
 
 const originalEndTurn = typeof endTurn !== 'undefined' ? endTurn : null;
