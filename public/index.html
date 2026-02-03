@@ -2394,30 +2394,26 @@ if (originalEndTurn) {
     };
 }
 
-const originalMakeGuess = typeof makeGuess !== 'undefined' ? makeGuess : null;
-if (originalMakeGuess) {
-    window.makeGuess = function(index) {
-        if (isSocketMultiplayer && socket && socketRoomCode) {
-            // In socket multiplayer, just emit - let the server broadcast back to both players
-            socket.emit('make-guess', {
-                roomCode: socketRoomCode,
-                playerNumber: currentTurn,
-                guessIndex: index
-            });
-            // Don't show winner locally - wait for server broadcast
-            return;
-        }
-        
-        // Local game logic (same-phone mode)
-        const opponentSecret = currentTurn === 1 ? secret2 : secret1;
-        
-        if (index === opponentSecret) {
-            win(currentTurn);
-        } else {
-            document.getElementById('wrongScreen').style.display = 'flex';
-        }
-    };
-}
+// Create makeGuess function for handling guesses by index (used in socket multiplayer)
+window.makeGuess = function(index) {
+    if (isSocketMultiplayer && socket && socketRoomCode) {
+        // In socket multiplayer, just emit - let the server broadcast back to both players
+        socket.emit('make-guess', {
+            roomCode: socketRoomCode,
+            playerNumber: currentTurn,
+            guessIndex: index
+        });
+        // Don't show winner locally - wait for server broadcast
+        guessMode = false;
+        return;
+    }
+    
+    // Local game logic (same-phone mode) - convert index to person
+    const guessedPerson = gameRoster[index];
+    if (guessedPerson) {
+        checkGuess(guessedPerson.name);
+    }
+};
 
 // Add Socket multiplayer button to the UI - REMOVED (already in HTML)
 
