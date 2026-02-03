@@ -2060,11 +2060,24 @@ function checkIfBothSecretsPicked() {
 function handleRemoteGuess(guesserNum, guessIndex) {
     const opponentSecret = guesserNum === 1 ? secret2 : secret1;
     
-    if (guessIndex === opponentSecret) {
-        win(guesserNum);
+    // Find the index of the opponent's secret in the gameRoster
+    const secretIndex = gameRoster.findIndex(p => p.id === opponentSecret.id);
+    
+    let winner;
+    if (guessIndex === secretIndex) {
+        // Correct guess!
+        winner = guesserNum;
     } else {
-        const actualWinner = guesserNum === 1 ? 2 : 1;
-        win(actualWinner);
+        // Wrong guess - opponent wins
+        winner = guesserNum === 1 ? 2 : 1;
+    }
+    
+    // Emit the win event so both players receive it
+    if (socket && socketRoomCode) {
+        socket.emit('game-won', { 
+            roomCode: socketRoomCode, 
+            winner: winner 
+        });
     }
 }
 
@@ -2303,7 +2316,7 @@ if (originalRenderBoard) {
             secretDisplay.style.borderColor = 'rgba(16, 185, 129, 0.3)';
         }
         
-        gameRoster.forEach(p=>{
+        gameRoster.forEach((p, index)=>{
             const c=document.createElement('div');
             c.className='card';
             if(eliminated[currentTurn].has(p.name)) c.classList.add('eliminated');
@@ -2314,11 +2327,22 @@ if (originalRenderBoard) {
                 c.style.opacity = '0.5';
                 c.style.cursor = 'not-allowed';
                 c.onclick = () => {
-                    alert(`It's Player ${currentTurn}'s turn! Please wait.`);
+                    // Don't do anything - player must wait for their turn
+                    return false;
                 };
             } else {
                 c.onclick=()=>{
-                    if(guessMode){ checkGuess(p.name); } else { eliminated[currentTurn].has(p.name)?eliminated[currentTurn].delete(p.name):eliminated[currentTurn].add(p.name); c.classList.toggle('eliminated'); }
+                    if(guessMode){ 
+                        // In socket multiplayer, use makeGuess with index
+                        if(isSocketMultiplayer) {
+                            makeGuess(index);
+                        } else {
+                            checkGuess(p.name); 
+                        }
+                    } else { 
+                        eliminated[currentTurn].has(p.name)?eliminated[currentTurn].delete(p.name):eliminated[currentTurn].add(p.name); 
+                        c.classList.toggle('eliminated'); 
+                    }
                 };
             }
             
@@ -2374,17 +2398,21 @@ const originalMakeGuess = typeof makeGuess !== 'undefined' ? makeGuess : null;
 if (originalMakeGuess) {
     window.makeGuess = function(index) {
         if (isSocketMultiplayer && socket && socketRoomCode) {
+            // In socket multiplayer, just emit - let the server broadcast back to both players
             socket.emit('make-guess', {
                 roomCode: socketRoomCode,
                 playerNumber: currentTurn,
                 guessIndex: index
             });
+            // Don't show winner locally - wait for server broadcast
+            return;
         }
         
+        // Local game logic (same-phone mode)
         const opponentSecret = currentTurn === 1 ? secret2 : secret1;
         
         if (index === opponentSecret) {
-            showWinner(currentTurn);
+            win(currentTurn);
         } else {
             document.getElementById('wrongScreen').style.display = 'flex';
         }
