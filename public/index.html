@@ -1884,93 +1884,56 @@ function resetGame() {
     
     renderRoster();
 }
-</script>
-<!-- Multiplayer Room Screen -->
-<div id="roomScreen" class="auth-box" style="display:none;">
-  <h1>🌐 Multiplayer</h1>
-  <p style="text-align:center;color:#6b7280;margin-bottom:28px;font-size:15px;">Create or join a room to play with a friend</p>
-  
-  <button onclick="createRoom()" style="width:100%;margin-bottom:14px;">Create New Room</button>
-  
-  <div style="margin:20px 0;text-align:center;color:#9ca3af;font-weight:600;">OR</div>
-  
-  <input id="roomCodeInput" type="text" class="full-width" placeholder="Enter Room Code" style="text-transform:uppercase;" maxlength="6" />
-  <button onclick="joinRoom()" style="width:100%;margin-bottom:14px;" class="guess">Join Room</button>
-  
-  <div id="roomMessage" style="display:none;padding:12px;border-radius:12px;margin-top:14px;font-size:14px;"></div>
-  
-  <button onclick="backToAuth()" class="secondary" style="width:100%;margin-top:20px;">Back to Login</button>
-</div>
 
-<!-- Waiting Room Screen -->
-<div id="waitingScreen" class="auth-box" style="display:none;">
-  <h1>🎮 Room Created!</h1>
-  <p style="text-align:center;color:#6b7280;margin-bottom:20px;font-size:15px;">Share this code with your friend:</p>
-  
-  <div style="background:linear-gradient(135deg, #667eea 0%, #764ba2 100%);color:white;padding:24px;border-radius:18px;margin:20px 0;box-shadow:0 10px 30px rgba(102, 126, 234, 0.4);">
-    <div style="font-size:14px;margin-bottom:8px;opacity:0.9;">Room Code:</div>
-    <div id="displayRoomCode" style="font-size:42px;font-weight:800;letter-spacing:4px;"></div>
-  </div>
-  
-  <p style="text-align:center;color:#6b7280;font-size:14px;margin-bottom:20px;">Waiting for Player 2 to join...</p>
-  
-  <div class="loader" style="margin:20px auto;"></div>
-  
-  <button onclick="cancelRoom()" class="secondary" style="width:100%;margin-top:20px;">Cancel</button>
-</div>
+// ========== SOCKET.IO MULTIPLAYER INTEGRATION ==========
+// This code adds server-based multiplayer without modifying the existing game logic
 
-<!-- Socket.IO Client -->
-<script src="/socket.io/socket.io.js"></script>
-<script>
-// Multiplayer variables
 let socket = null;
-let currentRoomCode = null;
-let playerNumber = null;
-let isMultiplayer = false;
+let isSocketMultiplayer = false;
+let socketRoomCode = null;
+let socketPlayerNumber = null;
 
-// Initialize Socket.IO
-function initializeSocket() {
+// Initialize Socket.IO when user logs in or continues as guest
+function initSocketIO() {
+    if (socket) return; // Already initialized
+    
     socket = io();
     
     socket.on('connect', () => {
-        console.log('Connected to server');
+        console.log('Connected to multiplayer server');
     });
     
     socket.on('player-joined', () => {
-        showMessage('Player 2 joined! Starting game...', 'success');
-        setTimeout(() => {
-            document.getElementById('waitingScreen').style.display = 'none';
-            document.getElementById('mainApp').classList.remove('hidden');
-        }, 1500);
+        alert('Player 2 has joined! You can now start the game.');
     });
     
-    socket.on('roster-synced', (roster) => {
-        window.roster = roster;
+    socket.on('roster-synced', (syncedRoster) => {
+        roster = syncedRoster;
+        window.roster = syncedRoster;
         renderRoster();
     });
     
-    socket.on('selected-synced', (selectedForGame) => {
-        window.selectedForGame = selectedForGame;
+    socket.on('selected-synced', (syncedSelected) => {
+        selectedForGame = syncedSelected;
+        window.selectedForGame = syncedSelected;
         renderRoster();
     });
     
     socket.on('game-started', () => {
-        startGameMultiplayer();
+        startGame();
     });
     
     socket.on('secret-picked', (data) => {
-        const { playerNumber: pickerNum, secretIndex } = data;
-        if (pickerNum === 1) {
-            secret1 = secretIndex;
+        if (data.playerNumber === 1) {
+            secret1 = data.secretIndex;
         } else {
-            secret2 = secretIndex;
+            secret2 = data.secretIndex;
         }
-        checkBothSecretsPicked();
+        checkIfBothSecretsPicked();
     });
     
     socket.on('eliminated-synced', (data) => {
-        const { playerNumber: pNum, eliminated: eliminatedSet } = data;
-        eliminated[pNum] = new Set(eliminatedSet);
+        eliminated[data.playerNumber] = new Set(data.eliminated);
         renderGame();
     });
     
@@ -1981,13 +1944,11 @@ function initializeSocket() {
     });
     
     socket.on('guess-made', (data) => {
-        const { playerNumber: guesser, guessIndex } = data;
-        handleOpponentGuess(guesser, guessIndex);
+        handleRemoteGuess(data.playerNumber, data.guessIndex);
     });
     
     socket.on('game-won', (data) => {
-        const { winner } = data;
-        showWinner(winner);
+        showWinner(data.winner);
     });
     
     socket.on('game-reset', () => {
@@ -1995,224 +1956,49 @@ function initializeSocket() {
     });
     
     socket.on('player-disconnected', () => {
-        alert('Other player disconnected. Returning to room screen.');
-        resetToRoomScreen();
-    });
-    
-    socket.on('disconnect', () => {
-        console.log('Disconnected from server');
+        alert('Other player disconnected!');
+        isSocketMultiplayer = false;
+        socketRoomCode = null;
+        socketPlayerNumber = null;
     });
 }
 
-function createRoom() {
-    if (!socket) initializeSocket();
-    
-    socket.emit('create-room', (response) => {
-        if (response.success) {
-            currentRoomCode = response.roomCode;
-            playerNumber = response.playerNumber;
-            isMultiplayer = true;
-            
-            document.getElementById('roomScreen').style.display = 'none';
-            document.getElementById('waitingScreen').style.display = 'block';
-            document.getElementById('displayRoomCode').textContent = currentRoomCode;
-        }
-    });
-}
-
-function joinRoom() {
-    const input = document.getElementById('roomCodeInput');
-    const code = input.value.trim().toUpperCase();
-    
-    if (code.length !== 6) {
-        showMessage('Please enter a 6-character room code', 'error');
-        return;
+function checkIfBothSecretsPicked() {
+    if (secret1 !== null && secret2 !== null) {
+        waitingForNextPicker = false;
+        document.getElementById('pickBox').classList.add('hidden');
+        document.getElementById('gameBox').classList.remove('hidden');
+        renderGame();
     }
-    
-    if (!socket) initializeSocket();
-    
-    socket.emit('join-room', code, (response) => {
-        if (response.success) {
-            currentRoomCode = response.roomCode;
-            playerNumber = response.playerNumber;
-            isMultiplayer = true;
-            
-            showMessage('Joined successfully!', 'success');
-            setTimeout(() => {
-                document.getElementById('roomScreen').style.display = 'none';
-                document.getElementById('mainApp').classList.remove('hidden');
-            }, 1000);
-        } else {
-            showMessage(response.error, 'error');
-        }
-    });
 }
 
-function cancelRoom() {
-    resetToRoomScreen();
-}
-
-function backToAuth() {
-    document.getElementById('roomScreen').style.display = 'none';
-    document.getElementById('authScreen').classList.remove('hidden');
-}
-
-function resetToRoomScreen() {
-    isMultiplayer = false;
-    currentRoomCode = null;
-    playerNumber = null;
+function handleRemoteGuess(guesserNum, guessIndex) {
+    const opponentSecret = guesserNum === 1 ? secret2 : secret1;
     
-    document.getElementById('waitingScreen').style.display = 'none';
-    document.getElementById('mainApp').classList.add('hidden');
-    document.getElementById('roomScreen').style.display = 'block';
-    
-    resetGame();
-}
-
-function showMessage(text, type) {
-    const msg = document.getElementById('roomMessage');
-    msg.textContent = text;
-    msg.style.display = 'block';
-    
-    if (type === 'error') {
-        msg.style.background = '#fef2f2';
-        msg.style.border = '1px solid #fecaca';
-        msg.style.color = '#991b1b';
+    if (guessIndex === opponentSecret) {
+        showWinner(guesserNum);
     } else {
-        msg.style.background = '#f0fdf4';
-        msg.style.border = '1px solid #bbf7d0';
-        msg.style.color = '#166534';
+        const actualWinner = guesserNum === 1 ? 2 : 1;
+        showWinner(actualWinner);
     }
 }
 
-// Override continueAsGuest to show multiplayer option
-const originalContinueAsGuest = continueAsGuest;
-continueAsGuest = function() {
-    isGuest = true;
-    loadGuestData();
-    document.getElementById('authScreen').classList.add('hidden');
-    document.getElementById('roomScreen').style.display = 'block';
-    initializeSocket();
-};
-
-// Override the login functions to show multiplayer screen
-const originalHandleLogin = handleLogin;
-handleLogin = async function() {
-    const email = document.getElementById('loginEmail').value.trim();
-    const password = document.getElementById('loginPassword').value;
-    
-    if (!email || !password) {
-        showLoginMessage('Please enter email and password');
+// Override startGame to add Socket.IO support
+const originalStartGame = typeof startGame !== 'undefined' ? startGame : null;
+window.startGame = function() {
+    if (isSocketMultiplayer && socketPlayerNumber === 2) {
+        alert('Only Player 1 (host) can start the game!');
         return;
     }
     
-    const user = window.users.find(u => u.email === email && u.password === password);
-    
-    if (user) {
-        currentUser = user;
-        localStorage.setItem('currentUser', JSON.stringify(user));
-        loadUserData();
-        document.getElementById('authScreen').classList.add('hidden');
-        document.getElementById('roomScreen').style.display = 'block';
-        initializeSocket();
-    } else {
-        showLoginMessage('Invalid email or password');
-    }
-};
-
-const originalHandleSignup = handleSignup;
-handleSignup = async function() {
-    const email = document.getElementById('signupEmail').value.trim();
-    const password = document.getElementById('signupPassword').value;
-    const confirmPassword = document.getElementById('signupPasswordConfirm').value;
-    
-    if (!email || !password) {
-        showSignupMessage('Please fill in all fields');
-        return;
-    }
-    
-    if (password !== confirmPassword) {
-        showSignupMessage('Passwords do not match');
-        return;
-    }
-    
-    if (password.length < 6) {
-        showSignupMessage('Password must be at least 6 characters');
-        return;
-    }
-    
-    const existingUser = window.users.find(u => u.email === email);
-    if (existingUser) {
-        showSignupMessage('Email already registered');
-        return;
-    }
-    
-    const newUser = {
-        id: Date.now().toString(),
-        email: email,
-        password: password,
-        roster: [],
-        savedPresets: {}
-    };
-    
-    window.users.push(newUser);
-    localStorage.setItem('users', JSON.stringify(window.users));
-    
-    currentUser = newUser;
-    localStorage.setItem('currentUser', JSON.stringify(newUser));
-    loadUserData();
-    
-    document.getElementById('authScreen').classList.add('hidden');
-    document.getElementById('roomScreen').style.display = 'block';
-    initializeSocket();
-};
-
-// Sync roster when adding/removing people
-const originalAddPerson = addPerson;
-addPerson = function() {
-    originalAddPerson();
-    if (isMultiplayer && currentRoomCode) {
-        socket.emit('sync-roster', { roomCode: currentRoomCode, roster: window.roster });
-    }
-};
-
-const originalDeletePerson = deletePerson;
-deletePerson = function(index) {
-    originalDeletePerson(index);
-    if (isMultiplayer && currentRoomCode) {
-        socket.emit('sync-roster', { roomCode: currentRoomCode, roster: window.roster });
-    }
-};
-
-// Sync selected people
-const originalToggleSelect = toggleSelect;
-toggleSelect = function(index) {
-    originalToggleSelect(index);
-    if (isMultiplayer && currentRoomCode) {
-        socket.emit('sync-selected', { roomCode: currentRoomCode, selectedForGame: window.selectedForGame });
-    }
-};
-
-// Override startGame for multiplayer
-const originalStartGame = startGame;
-startGame = function() {
-    if (isMultiplayer && currentRoomCode) {
-        socket.emit('start-game', { roomCode: currentRoomCode });
-        startGameMultiplayer();
-    } else {
-        originalStartGame();
-    }
-};
-
-function startGameMultiplayer() {
     if (selectedForGame.length < 2) {
-        alert('Select at least 2 people (green highlight) before starting.');
+        document.getElementById('notEnoughScreen').style.display = 'flex';
         return;
     }
     
     gameRoster = selectedForGame.map(i => ({...roster[i]}));
     eliminated = {1: new Set(), 2: new Set()};
-    currentPicker = playerNumber;
+    currentPicker = isSocketMultiplayer ? socketPlayerNumber : 1;
     currentTurn = 1;
     secret1 = null;
     secret2 = null;
@@ -2223,165 +2009,243 @@ function startGameMultiplayer() {
     document.getElementById('pickBox').classList.remove('hidden');
     document.getElementById('gameBox').classList.add('hidden');
     renderPick();
-}
-
-// Override pickCard for multiplayer
-const originalPickCard = pickCard;
-pickCard = function(index) {
-    selectedCard = index;
-    renderPick();
+    
+    if (isSocketMultiplayer && socket && socketRoomCode) {
+        socket.emit('start-game', { roomCode: socketRoomCode });
+    }
 };
 
-// Override confirmPick for multiplayer
-const originalConfirmPick = confirmPick;
-confirmPick = function() {
-    if (selectedCard === null) {
-        alert('Select a card first!');
-        return;
-    }
-    
-    if (currentPicker === 1) {
-        secret1 = selectedCard;
-    } else {
-        secret2 = selectedCard;
-    }
-    
-    if (isMultiplayer && currentRoomCode) {
-        socket.emit('pick-secret', { 
-            roomCode: currentRoomCode, 
-            playerNumber: currentPicker, 
-            secretIndex: selectedCard 
-        });
-    }
-    
-    checkBothSecretsPicked();
-};
-
-function checkBothSecretsPicked() {
-    if (secret1 !== null && secret2 !== null) {
-        document.getElementById('pickBox').classList.add('hidden');
-        document.getElementById('gameBox').classList.remove('hidden');
-        renderGame();
-    } else {
-        if (isMultiplayer) {
-            alert(`Waiting for ${currentPicker === 1 ? 'Player 2' : 'Player 1'} to pick...`);
-        } else {
-            waitingForNextPicker = true;
-            renderPick();
+// Wrap existing functions for Socket.IO sync
+const originalAddPerson = typeof addPerson !== 'undefined' ? addPerson : null;
+if (originalAddPerson) {
+    window.addPerson = async function() {
+        await originalAddPerson();
+        if (isSocketMultiplayer && socket && socketRoomCode) {
+            socket.emit('sync-roster', { roomCode: socketRoomCode, roster: window.roster });
         }
-    }
+    };
 }
 
-// Override eliminate for multiplayer
-const originalEliminate = eliminate;
-eliminate = function(index) {
-    if (!isMultiplayer || currentTurn === playerNumber) {
+const originalToggleSelect = typeof toggleSelect !== 'undefined' ? toggleSelect : null;
+if (originalToggleSelect) {
+    window.toggleSelect = function(index) {
+        originalToggleSelect(index);
+        if (isSocketMultiplayer && socket && socketRoomCode) {
+            socket.emit('sync-selected', { roomCode: socketRoomCode, selectedForGame: window.selectedForGame });
+        }
+    };
+}
+
+const originalConfirmPick = typeof confirmPick !== 'undefined' ? confirmPick : null;
+if (originalConfirmPick) {
+    window.confirmPick = function() {
+        if (selectedCard === null) {
+            alert('Please select a card first!');
+            return;
+        }
+        
+        if (currentPicker === 1) {
+            secret1 = selectedCard;
+        } else {
+            secret2 = selectedCard;
+        }
+        
+        if (isSocketMultiplayer && socket && socketRoomCode) {
+            socket.emit('pick-secret', {
+                roomCode: socketRoomCode,
+                playerNumber: currentPicker,
+                secretIndex: selectedCard
+            });
+        }
+        
+        if (!isSocketMultiplayer) {
+            // Original local multiplayer logic
+            if (currentPicker === 1) {
+                currentPicker = 2;
+                waitingForNextPicker = true;
+                selectedCard = null;
+                renderPick();
+            } else {
+                waitingForNextPicker = false;
+                document.getElementById('pickBox').classList.add('hidden');
+                document.getElementById('gameBox').classList.remove('hidden');
+                renderGame();
+            }
+        } else {
+            checkIfBothSecretsPicked();
+        }
+    };
+}
+
+const originalEliminate = typeof eliminate !== 'undefined' ? eliminate : null;
+if (originalEliminate) {
+    window.eliminate = function(index) {
+        if (isSocketMultiplayer && currentTurn !== socketPlayerNumber) {
+            return; // Not your turn
+        }
+        
         eliminated[currentTurn].add(index);
         renderGame();
         
-        if (isMultiplayer && currentRoomCode) {
-            socket.emit('sync-eliminated', { 
-                roomCode: currentRoomCode, 
-                playerNumber: currentTurn, 
-                eliminated: Array.from(eliminated[currentTurn]) 
+        if (isSocketMultiplayer && socket && socketRoomCode) {
+            socket.emit('sync-eliminated', {
+                roomCode: socketRoomCode,
+                playerNumber: currentTurn,
+                eliminated: Array.from(eliminated[currentTurn])
             });
         }
-    }
-};
-
-// Override endTurn for multiplayer
-const originalEndTurn = endTurn;
-endTurn = function() {
-    if (isMultiplayer && currentRoomCode) {
-        socket.emit('end-turn', { roomCode: currentRoomCode });
-    }
-    currentTurn = currentTurn === 1 ? 2 : 1;
-    guessMode = false;
-    renderGame();
-};
-
-// Override makeGuess for multiplayer
-const originalMakeGuess = makeGuess;
-makeGuess = function(index) {
-    if (isMultiplayer && currentRoomCode) {
-        socket.emit('make-guess', { 
-            roomCode: currentRoomCode, 
-            playerNumber: currentTurn, 
-            guessIndex: index 
-        });
-    }
-    handleGuess(currentTurn, index);
-};
-
-function handleOpponentGuess(guesser, guessIndex) {
-    handleGuess(guesser, guessIndex);
+    };
 }
 
-function handleGuess(guesser, guessIndex) {
-    const opponentSecret = guesser === 1 ? secret2 : secret1;
-    const winner = guesser;
-    
-    if (guessIndex === opponentSecret) {
-        if (isMultiplayer && currentRoomCode && guesser === playerNumber) {
-            socket.emit('player-won', { roomCode: currentRoomCode, winner });
+const originalEndTurn = typeof endTurn !== 'undefined' ? endTurn : null;
+if (originalEndTurn) {
+    window.endTurn = function() {
+        if (isSocketMultiplayer && socket && socketRoomCode) {
+            socket.emit('end-turn', { roomCode: socketRoomCode });
         }
-        showWinner(winner);
-    } else {
-        alert(`Wrong guess! Player ${guesser} loses!`);
-        const actualWinner = guesser === 1 ? 2 : 1;
-        if (isMultiplayer && currentRoomCode && guesser === playerNumber) {
-            socket.emit('player-won', { roomCode: currentRoomCode, winner: actualWinner });
-        }
-        showWinner(actualWinner);
-    }
+        currentTurn = currentTurn === 1 ? 2 : 1;
+        guessMode = false;
+        renderGame();
+    };
 }
 
-// Override resetGame for multiplayer
-const originalResetGame = resetGame;
-resetGame = function() {
-    if (isMultiplayer && currentRoomCode) {
-        socket.emit('reset-game', { roomCode: currentRoomCode });
+const originalMakeGuess = typeof makeGuess !== 'undefined' ? makeGuess : null;
+if (originalMakeGuess) {
+    window.makeGuess = function(index) {
+        if (isSocketMultiplayer && socket && socketRoomCode) {
+            socket.emit('make-guess', {
+                roomCode: socketRoomCode,
+                playerNumber: currentTurn,
+                guessIndex: index
+            });
+        }
+        
+        const opponentSecret = currentTurn === 1 ? secret2 : secret1;
+        
+        if (index === opponentSecret) {
+            showWinner(currentTurn);
+        } else {
+            document.getElementById('wrongScreen').style.display = 'flex';
+        }
+    };
+}
+
+// Add Socket multiplayer button to the UI
+window.addEventListener('DOMContentLoaded', () => {
+    // Find the controls div with Start Game button
+    const controlsDiv = document.querySelector('#rosterBox .controls');
+    if (controlsDiv) {
+        // Add Socket multiplayer button
+        const socketBtn = document.createElement('button');
+        socketBtn.className = 'guest';
+        socketBtn.textContent = '🌐 Server Multiplayer';
+        socketBtn.onclick = showSocketMultiplayerModal;
+        controlsDiv.appendChild(socketBtn);
+    }
+});
+
+function showSocketMultiplayerModal() {
+    const modal = document.createElement('div');
+    modal.className = 'pass-screen';
+    modal.style.display = 'flex';
+    modal.style.zIndex = '1500';
+    modal.innerHTML = `
+        <div style="background:rgba(255,255,255,0.98);border-radius:24px;padding:32px;max-width:500px;position:relative;z-index:1;">
+            <h2 style="color:#1f2937;margin-bottom:20px;">Server Multiplayer</h2>
+            <p style="color:#6b7280;margin-bottom:20px;">Create or join a room to play on two devices</p>
+            
+            <button onclick="createSocketRoom()" style="width:100%;margin-bottom:12px;">Create Room</button>
+            
+            <div style="margin:16px 0;text-align:center;color:#9ca3af;">OR</div>
+            
+            <input id="socketRoomInput" type="text" placeholder="Enter 6-character code" 
+                   style="width:100%;box-sizing:border-box;margin-bottom:12px;text-transform:uppercase;" maxlength="6" />
+            <button onclick="joinSocketRoom()" class="guess" style="width:100%;margin-bottom:12px;">Join Room</button>
+            
+            <button onclick="closeSocketModal()" class="secondary" style="width:100%;margin-top:8px;">Cancel</button>
+        </div>
+    `;
+    modal.id = 'socketModal';
+    document.body.appendChild(modal);
+}
+
+function closeSocketModal() {
+    const modal = document.getElementById('socketModal');
+    if (modal) modal.remove();
+}
+
+function createSocketRoom() {
+    if (!socket) initSocketIO();
+    
+    socket.emit('create-room', (response) => {
+        if (response.success) {
+            socketRoomCode = response.roomCode;
+            socketPlayerNumber = response.playerNumber;
+            isSocketMultiplayer = true;
+            
+            closeSocketModal();
+            
+            const waitingModal = document.createElement('div');
+            waitingModal.className = 'pass-screen';
+            waitingModal.style.display = 'flex';
+            waitingModal.style.zIndex = '1500';
+            waitingModal.innerHTML = `
+                <div style="background:rgba(255,255,255,0.98);border-radius:24px;padding:32px;max-width:500px;text-align:center;position:relative;z-index:1;">
+                    <h2 style="color:#1f2937;margin-bottom:20px;">Room Created!</h2>
+                    <p style="color:#6b7280;margin-bottom:12px;">Share this code:</p>
+                    <div style="font-size:48px;font-weight:800;color:#667eea;letter-spacing:8px;margin:20px 0;">${socketRoomCode}</div>
+                    <p style="color:#6b7280;margin-top:12px;">Waiting for Player 2...</p>
+                    <button onclick="cancelSocketRoom()" class="secondary" style="margin-top:20px;">Cancel</button>
+                </div>
+            `;
+            waitingModal.id = 'socketWaitingModal';
+            document.body.appendChild(waitingModal);
+        }
+    });
+}
+
+function joinSocketRoom() {
+    const code = document.getElementById('socketRoomInput').value.trim().toUpperCase();
+    
+    if (code.length !== 6) {
+        alert('Please enter a 6-character code');
+        return;
     }
     
-    selectedForGame = [];
-    gameRoster = [];
-    currentPicker = isMultiplayer ? playerNumber : 1;
-    currentTurn = 1;
-    selectedCard = null;
-    secret1 = null;
-    secret2 = null;
-    eliminated = {1: new Set(), 2: new Set()};
-    waitingForNextPicker = false;
-    guessMode = false;
+    if (!socket) initSocketIO();
     
-    document.querySelectorAll('.confetti').forEach(c => c.remove());
+    socket.emit('join-room', code, (response) => {
+        if (response.success) {
+            socketRoomCode = response.roomCode;
+            socketPlayerNumber = response.playerNumber;
+            isSocketMultiplayer = true;
+            
+            closeSocketModal();
+            alert('Joined room successfully! You are Player 2.');
+        } else {
+            alert(response.error || 'Failed to join room');
+        }
+    });
+}
+
+function cancelSocketRoom() {
+    isSocketMultiplayer = false;
+    socketRoomCode = null;
+    socketPlayerNumber = null;
     
-    document.getElementById('rosterBox').classList.remove('hidden');
-    document.getElementById('pickBox').classList.add('hidden');
-    document.getElementById('gameBox').classList.add('hidden');
-    document.getElementById('winScreen').style.display='none';
-    
-    renderRoster();
+    const waitingModal = document.getElementById('socketWaitingModal');
+    if (waitingModal) waitingModal.remove();
+}
+
+// Initialize Socket.IO when the main app is shown
+const originalShowMainApp = showMainApp;
+window.showMainApp = function() {
+    originalShowMainApp();
+    initSocketIO();
 };
 
-// Add loader CSS
-const style = document.createElement('style');
-style.textContent = `
-.loader {
-    border: 4px solid rgba(255,255,255,0.3);
-    border-top: 4px solid white;
-    border-radius: 50%;
-    width: 40px;
-    height: 40px;
-    animation: spin 1s linear infinite;
-}
-@keyframes spin {
-    0% { transform: rotate(0deg); }
-    100% { transform: rotate(360deg); }
-}
-`;
-document.head.appendChild(style);
 </script>
-
+<!-- Socket.IO Client Library -->
+<script src="/socket.io/socket.io.js"></script>
 </body>
 </html>
