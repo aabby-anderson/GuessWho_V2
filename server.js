@@ -74,7 +74,7 @@ io.on('connection', (socket) => {
         socket.to(roomCode).emit('selected-synced', selectedForGame);
     });
 
-    // Start the game (from roster screen)
+    // BUG FIX #1: Start the game - pass gameRoster data to Player 2
     socket.on('start-game', (data) => {
         const { roomCode, gameRoster } = data;
         console.log(`Game starting in room ${roomCode} with ${gameRoster?.length || 0} people`);
@@ -99,14 +99,14 @@ io.on('connection', (socket) => {
         socket.to(roomCode).emit('turn-ended');
     });
 
-    // Make a guess - FIXED: broadcast to BOTH players
+    // BUG FIX #2: Make a guess - use io.to() to broadcast to BOTH players
     socket.on('make-guess', (data) => {
         const { roomCode, playerNumber, guessIndex } = data;
         console.log(`Guess made in room ${roomCode} by player ${playerNumber}`);
         io.to(roomCode).emit('guess-made', { playerNumber, guessIndex });
     });
 
-    // Win announcement - FIXED: listen for 'game-won' and broadcast to BOTH players
+    // BUG FIX #3: Win announcement - listen for 'game-won' (not 'player-won') and use io.to() to broadcast to BOTH players
     socket.on('game-won', (data) => {
         const { roomCode, winner } = data;
         console.log(`Game won in room ${roomCode} - Player ${winner} wins! Broadcasting to BOTH players`);
