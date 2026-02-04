@@ -1637,7 +1637,13 @@ function checkGuess(name){
 
 function continueAfterWrong() {
     wrongScreen.style.display='none';
-    endTurn();
+    
+    // Use window.endTurn if it exists (for socket multiplayer), otherwise use local endTurn
+    if (typeof window.endTurn === 'function') {
+        window.endTurn();
+    } else {
+        endTurn();
+    }
 }
 
 function resetEliminations(){ eliminated[currentTurn]=new Set(); renderBoard(); }
@@ -2113,6 +2119,14 @@ function initSocketIO() {
         win(data.winner);
     });
     
+    socket.on('wrong-guess', (data) => {
+        // Show wrong screen for the player who guessed
+        if (data.guesserNum === socketPlayerNumber) {
+            document.getElementById('wrongScreen').style.display = 'flex';
+        }
+        // Other player doesn't see anything, turn will change after wrong screen is dismissed
+    });
+    
     socket.on('game-reset', () => {
         resetGame();
     });
@@ -2282,18 +2296,17 @@ function handleRemoteGuess(guesserNum, guessIndex) {
     // Find the index of the opponent's secret in the gameRoster
     const secretIndex = gameRoster.findIndex(p => p.id === opponentSecret.id);
     
-    let winner;
     if (guessIndex === secretIndex) {
-        // Correct guess!
-        winner = guesserNum;
+        // Correct guess - guesser wins!
+        if (isSocketMultiplayer && socket && socketRoomCode) {
+            socket.emit('game-won', { roomCode: socketRoomCode, winner: guesserNum });
+        }
     } else {
-        // Wrong guess - opponent wins
-        winner = guesserNum === 1 ? 2 : 1;
-    }
-    
-    // Emit game-won which will be broadcast to both players by the server
-    if (isSocketMultiplayer && socket && socketRoomCode) {
-        socket.emit('game-won', { roomCode: socketRoomCode, winner: winner });
+        // Wrong guess - show wrong screen and end turn
+        // Only emit the wrong-guess event, don't declare a winner
+        if (isSocketMultiplayer && socket && socketRoomCode) {
+            socket.emit('wrong-guess', { roomCode: socketRoomCode, guesserNum: guesserNum });
+        }
     }
 }
 
