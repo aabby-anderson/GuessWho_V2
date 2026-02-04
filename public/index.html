@@ -165,6 +165,17 @@ button.guest:hover{box-shadow: 0 10px 30px rgba(139, 92, 246, 0.6), 0 0 0 1px rg
   </div>
 </div>
 
+<div id="loseScreen" class="win-screen">
+  <h1 id="loseText"></h1>
+  <div id="loseButtons" style="display:flex;gap:16px;justify-content:center;position:relative;z-index:1;">
+    <button onclick="handlePlayAgain()">Play Again</button>
+    <button class="secondary" onclick="handleLeaveRoom()">Leave Room</button>
+  </div>
+  <div id="waitingForOtherPlayerLose" style="display:none;margin-top:20px;font-size:18px;position:relative;z-index:1;">
+    Waiting for other player...
+  </div>
+</div>
+
 
 
 <!-- Online (Two-Screen) Multiplayer Modal -->
@@ -1641,21 +1652,47 @@ function endTurn(){
     }
 }
 function win(player){ 
-    document.getElementById('winText').textContent=`🎉 Player ${player} Wins!`; 
-    document.getElementById('winScreen').style.display='flex'; 
-    
-    // Create confetti
-    for(let i=0;i<100;i++){ 
-        const c=document.createElement('div'); 
-        c.className='confetti'; 
-        c.style.left=Math.random()*100+'vw'; 
-        c.style.top='-10px';
-        c.style.background=`hsl(${Math.random()*360},80%,60%)`; 
-        c.style.animationDelay=Math.random()*3+'s'; 
-        c.style.animationDuration=(2 + Math.random()*2)+'s';
-        document.body.appendChild(c); 
-    } 
-    console.log('Confetti created:', document.querySelectorAll('.confetti').length);
+    // In multiplayer mode, check if this is the current player
+    if (isSocketMultiplayer && socketPlayerNumber) {
+        if (player === socketPlayerNumber) {
+            // This player won - show win screen with confetti
+            document.getElementById('winText').textContent=`🎉 You Win!`; 
+            document.getElementById('winScreen').style.display='flex';
+            
+            // Create confetti
+            for(let i=0;i<100;i++){ 
+                const c=document.createElement('div'); 
+                c.className='confetti'; 
+                c.style.left=Math.random()*100+'vw'; 
+                c.style.top='-10px';
+                c.style.background=`hsl(${Math.random()*360},80%,60%)`; 
+                c.style.animationDelay=Math.random()*3+'s'; 
+                c.style.animationDuration=(2 + Math.random()*2)+'s';
+                document.body.appendChild(c); 
+            } 
+        } else {
+            // This player lost - show lose screen without confetti
+            document.getElementById('loseText').textContent=`😞 You Lost!`; 
+            document.getElementById('loseScreen').style.display='flex';
+        }
+    } else {
+        // Same-phone mode - show win screen with confetti
+        document.getElementById('winText').textContent=`🎉 Player ${player} Wins!`; 
+        document.getElementById('winScreen').style.display='flex'; 
+        
+        // Create confetti
+        for(let i=0;i<100;i++){ 
+            const c=document.createElement('div'); 
+            c.className='confetti'; 
+            c.style.left=Math.random()*100+'vw'; 
+            c.style.top='-10px';
+            c.style.background=`hsl(${Math.random()*360},80%,60%)`; 
+            c.style.animationDelay=Math.random()*3+'s'; 
+            c.style.animationDuration=(2 + Math.random()*2)+'s';
+            document.body.appendChild(c); 
+        } 
+    }
+    console.log('Win/Lose screen displayed');
 }
 
 function showPass(t){ passText.textContent=t; passScreen.style.display='flex'; }
@@ -1904,9 +1941,17 @@ function handlePlayAgain() {
     // Socket multiplayer mode
     playerWantsRematch = true;
     
-    // Hide buttons, show waiting message
-    document.getElementById('winButtons').style.display = 'none';
-    document.getElementById('waitingForOtherPlayer').style.display = 'block';
+    // Check which screen is currently showing and hide its buttons
+    const winScreen = document.getElementById('winScreen');
+    const loseScreen = document.getElementById('loseScreen');
+    
+    if (winScreen.style.display === 'flex') {
+        document.getElementById('winButtons').style.display = 'none';
+        document.getElementById('waitingForOtherPlayer').style.display = 'block';
+    } else if (loseScreen.style.display === 'flex') {
+        document.getElementById('loseButtons').style.display = 'none';
+        document.getElementById('waitingForOtherPlayerLose').style.display = 'block';
+    }
     
     // Emit to server
     socket.emit('player-wants-rematch', { roomCode: socketRoomCode });
@@ -1938,6 +1983,7 @@ function cleanupMultiplayer() {
     
     // Reset to initial state
     document.getElementById('winScreen').style.display = 'none';
+    document.getElementById('loseScreen').style.display = 'none';
     document.getElementById('rosterBox').classList.add('hidden');
     document.getElementById('pickBox').classList.add('hidden');
     document.getElementById('gameBox').classList.add('hidden');
@@ -2123,10 +2169,13 @@ function startRematch() {
     playerWantsRematch = false;
     opponentWantsRematch = false;
     
-    // Hide win screen
+    // Hide both win and lose screens
     document.getElementById('winScreen').style.display = 'none';
+    document.getElementById('loseScreen').style.display = 'none';
     document.getElementById('winButtons').style.display = 'flex';
+    document.getElementById('loseButtons').style.display = 'flex';
     document.getElementById('waitingForOtherPlayer').style.display = 'none';
+    document.getElementById('waitingForOtherPlayerLose').style.display = 'none';
     
     // Remove confetti
     document.querySelectorAll('.confetti').forEach(c => c.remove());
