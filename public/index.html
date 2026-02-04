@@ -2325,30 +2325,29 @@ if (originalEndTurn) {
     };
 }
 
-const originalMakeGuess = typeof makeGuess !== 'undefined' ? makeGuess : null;
-if (originalMakeGuess) {
-    window.makeGuess = function(index) {
-        if (isSocketMultiplayer && socket && socketRoomCode) {
-            socket.emit('make-guess', {
-                roomCode: socketRoomCode,
-                playerNumber: currentTurn,
-                guessIndex: index
-            });
-            // Don't handle win/loss locally - let handleRemoteGuess do it when server broadcasts back
-            return;
-        }
-        
-        // Same-phone mode - handle locally
-        const opponentSecret = currentTurn === 1 ? secret2 : secret1;
-        const guessedPerson = gameRoster[index];
-        
-        if (guessedPerson && guessedPerson.id === opponentSecret.id) {
-            win(currentTurn);
-        } else {
-            document.getElementById('wrongScreen').style.display = 'flex';
-        }
-    };
-}
+// Create makeGuess function for handling guesses by index
+window.makeGuess = function(index) {
+    if (isSocketMultiplayer && socket && socketRoomCode) {
+        socket.emit('make-guess', {
+            roomCode: socketRoomCode,
+            playerNumber: currentTurn,
+            guessIndex: index
+        });
+        // Don't handle win/loss locally - let handleRemoteGuess do it when server broadcasts back
+        guessMode = false;
+        return;
+    }
+    
+    // Same-phone mode - handle locally
+    const opponentSecret = currentTurn === 1 ? secret2 : secret1;
+    const guessedPerson = gameRoster[index];
+    
+    if (guessedPerson && guessedPerson.id === opponentSecret.id) {
+        win(currentTurn);
+    } else {
+        document.getElementById('wrongScreen').style.display = 'flex';
+    }
+};
 
 // Add Socket multiplayer button to the UI - REMOVED (already in HTML)
 
