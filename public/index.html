@@ -1167,9 +1167,11 @@ function renderOnlineBoard(){
   turnTitle.textContent = `Player ${currentTurn} Turn`;
   secretDisplay.textContent = `Your Secret: ${secret?.name || ''}`;
 
-  // Disable controls if not your turn
+  // Disable controls if not your turn (but not in Socket.IO mode)
   const isMyTurn = (currentTurn === myPlayerNumber);
-  document.querySelector('.guess')?.toggleAttribute('disabled', !isMyTurn);
+  if (!isSocketMultiplayer) {
+    document.querySelector('.guess')?.toggleAttribute('disabled', !isMyTurn);
+  }
 
   onlineGameRoster.forEach(p=>{
     const c=document.createElement('div');
