@@ -118,6 +118,37 @@ io.on('connection', (socket) => {
         const { roomCode } = data;
         socket.to(roomCode).emit('game-reset');
     });
+    
+    // Player wants rematch
+    socket.on('player-wants-rematch', (data) => {
+        const { roomCode } = data;
+        const room = rooms.get(roomCode);
+        
+        if (!room) return;
+        
+        // Notify other player
+        socket.to(roomCode).emit('opponent-wants-rematch');
+        
+        // Check if both players have said they want rematch
+        // (This is a simple implementation - you could track this in the room object for better reliability)
+        console.log(`Player in room ${roomCode} wants rematch`);
+    });
+    
+    // Player left room
+    socket.on('player-left-room', (data) => {
+        const { roomCode } = data;
+        const room = rooms.get(roomCode);
+        
+        if (!room) return;
+        
+        console.log(`Player left room ${roomCode}`);
+        
+        // Notify other player
+        socket.to(roomCode).emit('opponent-left-room');
+        
+        // Clean up the room
+        rooms.delete(roomCode);
+    });
 
     // Handle disconnect
     socket.on('disconnect', () => {
