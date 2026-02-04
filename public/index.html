@@ -2252,7 +2252,7 @@ if (originalRenderBoard) {
             secretDisplay.style.opacity = '1';
         }
         
-        gameRoster.forEach(p=>{
+        gameRoster.forEach((p, index)=>{
             const c=document.createElement('div');
             c.className='card';
             if(eliminated[currentTurn].has(p.name)) c.classList.add('eliminated');
@@ -2267,7 +2267,17 @@ if (originalRenderBoard) {
                 };
             } else {
                 c.onclick=()=>{
-                    if(guessMode){ checkGuess(p.name); } else { eliminated[currentTurn].has(p.name)?eliminated[currentTurn].delete(p.name):eliminated[currentTurn].add(p.name); c.classList.toggle('eliminated'); }
+                    if(guessMode){ 
+                        // In Socket.IO mode, use makeGuess with index. In same-phone mode, use checkGuess with name.
+                        if(isSocketMultiplayer) {
+                            makeGuess(index);
+                        } else {
+                            checkGuess(p.name);
+                        }
+                    } else { 
+                        eliminated[currentTurn].has(p.name)?eliminated[currentTurn].delete(p.name):eliminated[currentTurn].add(p.name); 
+                        c.classList.toggle('eliminated'); 
+                    }
                 };
             }
             
@@ -2330,9 +2340,10 @@ if (originalMakeGuess) {
         
         // Same-phone mode - handle locally
         const opponentSecret = currentTurn === 1 ? secret2 : secret1;
+        const guessedPerson = gameRoster[index];
         
-        if (index === opponentSecret) {
-            showWinner(currentTurn);
+        if (guessedPerson && guessedPerson.id === opponentSecret.id) {
+            win(currentTurn);
         } else {
             document.getElementById('wrongScreen').style.display = 'flex';
         }
