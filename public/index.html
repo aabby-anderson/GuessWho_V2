@@ -2074,13 +2074,16 @@ function initSocketIO() {
     socket.on('opponent-wants-rematch', () => {
         opponentWantsRematch = true;
         
-        // If both players want rematch, start new game
-        if (playerWantsRematch && opponentWantsRematch) {
-            startRematch();
+        // Update the waiting message to show opponent is ready
+        const waitingDiv = document.getElementById('waitingForOtherPlayer');
+        if (waitingDiv && waitingDiv.style.display !== 'none') {
+            waitingDiv.innerHTML = '<p style="margin-top:20px;font-size:16px;">✅ Opponent is ready! Starting rematch...</p>';
         }
     });
     
-    socket.on('both-players-ready-rematch', () => {
+    // NEW: Listen for rematch confirmation from server
+    socket.on('rematch-confirmed', () => {
+        console.log('Both players ready - starting rematch');
         startRematch();
     });
     
@@ -2089,7 +2092,27 @@ function initSocketIO() {
         cleanupMultiplayer();
     });
     
+    socket.on('opponent-disconnected', () => {
+        // Close any active waiting screens
+        const socketWaitingModal = document.getElementById('socketWaitingModal');
+        const waitingForHostRematch = document.getElementById('waitingForHostRematch');
+        
+        if (socketWaitingModal) socketWaitingModal.remove();
+        if (waitingForHostRematch) waitingForHostRematch.remove();
+        
+        // Show alert and cleanup
+        alert('Other player disconnected! Returning to main screen.');
+        cleanupMultiplayer();
+    });
+    
     socket.on('player-disconnected', () => {
+        // Close any active waiting screens
+        const socketWaitingModal = document.getElementById('socketWaitingModal');
+        const waitingForHostRematch = document.getElementById('waitingForHostRematch');
+        
+        if (socketWaitingModal) socketWaitingModal.remove();
+        if (waitingForHostRematch) waitingForHostRematch.remove();
+        
         alert('Other player disconnected!');
         cleanupMultiplayer();
     });
@@ -2110,6 +2133,7 @@ function startRematch() {
     
     // Reset game state
     selectedForGame = [];
+    window.selectedForGame = [];
     gameRoster = [];
     currentPicker = 1;
     currentTurn = 1;
@@ -2125,6 +2149,45 @@ function startRematch() {
         document.getElementById('rosterBox').classList.remove('hidden');
         document.getElementById('pickBox').classList.add('hidden');
         document.getElementById('gameBox').classList.add('hidden');
+        
+        // Show the multiplayer banner and controls again
+        const mainApp = document.getElementById('mainApp');
+        
+        // Remove old banner if exists
+        const oldBanner = document.getElementById('multiplayerBanner');
+        if (oldBanner) oldBanner.remove();
+        
+        // Create fresh multiplayer banner
+        const infoBanner = document.createElement('div');
+        infoBanner.id = 'multiplayerBanner';
+        infoBanner.style.cssText = 'background:linear-gradient(135deg, #10b981 0%, #059669 100%);color:white;padding:20px;border-radius:18px;margin:20px auto;max-width:1000px;text-align:center;box-shadow:0 10px 30px rgba(16, 185, 129, 0.3);position:relative;z-index:1;';
+        infoBanner.innerHTML = `
+            <div style="font-size:18px;font-weight:700;margin-bottom:8px;">🎮 Multiplayer Game</div>
+            <div style="font-size:32px;font-weight:900;letter-spacing:2px;margin:8px 0;">` + socketRoomCode + `</div>
+            <div style="font-size:13px;opacity:0.9;">✅ Player 2 joined! Select people and start when ready.</div>
+        `;
+        mainApp.insertBefore(infoBanner, mainApp.firstChild);
+        
+        // Remove old instructions if exist
+        const oldInstructions = document.getElementById('multiplayerInstructions');
+        if (oldInstructions) oldInstructions.remove();
+        
+        // Add instructions to roster box
+        const rosterBox = document.getElementById('rosterBox');
+        const instructionDiv = document.createElement('div');
+        instructionDiv.id = 'multiplayerInstructions';
+        instructionDiv.style.cssText = 'background:#d1fae5;border:2px solid #059669;border-radius:14px;padding:16px;margin-bottom:20px;color:#065f46;';
+        instructionDiv.innerHTML = `
+            <div style="font-weight:700;font-size:16px;margin-bottom:8px;color:#059669;">✅ Ready for Next Game!</div>
+            <div style="font-size:14px;line-height:1.6;color:#065f46;">
+                Select people and click "Start Game" below when ready.
+            </div>
+        `;
+        rosterBox.insertBefore(instructionDiv, rosterBox.firstChild);
+        
+        // Show multiplayer start button
+        showMultiplayerStartButton();
+        
         renderRoster();
     } else {
         // Player 2 waits for host to select roster
@@ -2132,12 +2195,22 @@ function startRematch() {
         document.getElementById('pickBox').classList.add('hidden');
         document.getElementById('gameBox').classList.add('hidden');
         
-        // Show waiting message
+        // Remove old waiting screen if it exists
+        const oldWaitingDiv = document.getElementById('waitingForHostRematch');
+        if (oldWaitingDiv) oldWaitingDiv.remove();
+        
+        // Show waiting message with leave button
         const waitingDiv = document.createElement('div');
         waitingDiv.id = 'waitingForHostRematch';
         waitingDiv.className = 'pass-screen';
         waitingDiv.style.display = 'flex';
-        waitingDiv.innerHTML = '<h1>⏳ Waiting for host to select roster...</h1>';
+        waitingDiv.innerHTML = `
+            <div style="background:rgba(255,255,255,0.98);border-radius:24px;padding:48px;max-width:500px;text-align:center;position:relative;z-index:1;">
+                <h1 style="color:#1f2937;margin-bottom:20px;">⏳ Waiting for Host...</h1>
+                <p style="color:#6b7280;margin-bottom:20px;">Player 1 is selecting the roster for the next game</p>
+                <button onclick="handleLeaveRoom()" class="danger">Leave Room</button>
+            </div>
+        `;
         document.body.appendChild(waitingDiv);
     }
 }
@@ -2628,7 +2701,7 @@ function joinSocketRoom() {
                     <div style="margin-top:20px;padding:12px;background:rgba(102,126,234,0.1);border-radius:12px;color:#667eea;font-size:13px;">
                         💡 Player 1 is selecting the people for this game
                     </div>
-                    <button onclick="cancelSocketRoom()" class="secondary" style="margin-top:20px;">Leave Room</button>
+                    <button onclick="handleLeaveRoom()" class="danger" style="margin-top:20px;">Leave Room</button>
                 </div>
             `;
             waitingModal.id = 'socketWaitingModal';
