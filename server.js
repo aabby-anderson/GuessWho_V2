@@ -121,6 +121,13 @@ io.on('connection', (socket) => {
         io.to(roomCode).emit('game-won', { winner });
     });
 
+    // Wrong guess - broadcast to BOTH players
+    socket.on('wrong-guess', (data) => {
+        const { roomCode, guesserNum } = data;
+        console.log(`Wrong guess in room ${roomCode} by player ${guesserNum}`);
+        io.to(roomCode).emit('wrong-guess', { guesserNum });
+    });
+
     // Reset game
     socket.on('reset-game', (data) => {
         const { roomCode } = data;
