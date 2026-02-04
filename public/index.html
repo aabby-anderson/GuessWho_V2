@@ -154,7 +154,16 @@ button.guest:hover{box-shadow: 0 10px 30px rgba(139, 92, 246, 0.6), 0 0 0 1px rg
 <div id="deleteConfirm" class="pass-screen"><h1 id="deleteText"></h1><div style="display:flex;gap:12px;"><button onclick="confirmDelete()" style="background:#dc2626;">Yes, Delete</button><button onclick="cancelDelete()" style="background:#6b7280;">Cancel</button></div></div>
 <div id="deletePresetConfirm" class="pass-screen"><h1 id="deletePresetText"></h1><div style="display:flex;gap:12px;"><button onclick="confirmDeletePreset()" style="background:#dc2626;">Yes, Delete</button><button onclick="cancelDeletePreset()" style="background:#6b7280;">Cancel</button></div></div>
 <div id="notEnoughScreen" class="pass-screen"><h1>⚠️ Not Enough Players</h1><p style="font-size:18px;margin:10px 0;">Select at least 2 people by clicking on them (they will get a green outline)</p><button onclick="closeNotEnough()">OK</button></div>
-<div id="winScreen" class="win-screen"><h1 id="winText"></h1><button onclick="resetGame()">Play Again</button></div>
+<div id="winScreen" class="win-screen">
+  <h1 id="winText"></h1>
+  <div id="winButtons" style="display:flex;gap:16px;justify-content:center;position:relative;z-index:1;">
+    <button onclick="handlePlayAgain()">Play Again</button>
+    <button class="secondary" onclick="handleLeaveRoom()">Leave Room</button>
+  </div>
+  <div id="waitingForOtherPlayer" style="display:none;margin-top:20px;font-size:18px;position:relative;z-index:1;">
+    Waiting for other player...
+  </div>
+</div>
 
 
 
@@ -1881,6 +1890,72 @@ function resetGame() {
     renderRoster();
 }
 
+// Game over handlers for multiplayer
+let playerWantsRematch = false;
+let opponentWantsRematch = false;
+
+function handlePlayAgain() {
+    if (!isSocketMultiplayer) {
+        // Same-phone mode - just reset
+        resetGame();
+        return;
+    }
+    
+    // Socket multiplayer mode
+    playerWantsRematch = true;
+    
+    // Hide buttons, show waiting message
+    document.getElementById('winButtons').style.display = 'none';
+    document.getElementById('waitingForOtherPlayer').style.display = 'block';
+    
+    // Emit to server
+    socket.emit('player-wants-rematch', { roomCode: socketRoomCode });
+}
+
+function handleLeaveRoom() {
+    if (!isSocketMultiplayer) {
+        // Same-phone mode - just reset
+        resetGame();
+        return;
+    }
+    
+    // Socket multiplayer mode - emit leave event
+    socket.emit('player-left-room', { roomCode: socketRoomCode });
+    
+    // Reset local state
+    cleanupMultiplayer();
+}
+
+function cleanupMultiplayer() {
+    isSocketMultiplayer = false;
+    socketRoomCode = null;
+    socketPlayerNumber = null;
+    playerWantsRematch = false;
+    opponentWantsRematch = false;
+    
+    // Remove confetti
+    document.querySelectorAll('.confetti').forEach(c => c.remove());
+    
+    // Reset to initial state
+    document.getElementById('winScreen').style.display = 'none';
+    document.getElementById('rosterBox').classList.add('hidden');
+    document.getElementById('pickBox').classList.add('hidden');
+    document.getElementById('gameBox').classList.add('hidden');
+    document.getElementById('authScreen').classList.remove('hidden');
+    
+    // Reset game state
+    selectedForGame = [];
+    gameRoster = [];
+    currentPicker = 1;
+    currentTurn = 1;
+    selectedCard = null;
+    secret1 = null;
+    secret2 = null;
+    eliminated = {1: new Set(), 2: new Set()};
+    waitingForNextPicker = false;
+    guessMode = false;
+}
+
 // ========== SOCKET.IO MULTIPLAYER INTEGRATION ==========
 // This code adds server-based multiplayer without modifying the existing game logic
 
@@ -1941,6 +2016,10 @@ function initSocketIO() {
         const waitingModal = document.getElementById('socketWaitingModal');
         if (waitingModal) waitingModal.remove();
         
+        // Remove rematch waiting screen if it exists
+        const rematchWaiting = document.getElementById('waitingForHostRematch');
+        if (rematchWaiting) rematchWaiting.remove();
+        
         // Set up the game for Player 2 with the received game roster
         gameRoster = data.gameRoster;
         window.gameRoster = gameRoster;
@@ -1992,12 +2071,75 @@ function initSocketIO() {
         resetGame();
     });
     
+    socket.on('opponent-wants-rematch', () => {
+        opponentWantsRematch = true;
+        
+        // If both players want rematch, start new game
+        if (playerWantsRematch && opponentWantsRematch) {
+            startRematch();
+        }
+    });
+    
+    socket.on('both-players-ready-rematch', () => {
+        startRematch();
+    });
+    
+    socket.on('opponent-left-room', () => {
+        alert('Other player left the room. Returning to main screen.');
+        cleanupMultiplayer();
+    });
+    
     socket.on('player-disconnected', () => {
         alert('Other player disconnected!');
-        isSocketMultiplayer = false;
-        socketRoomCode = null;
-        socketPlayerNumber = null;
+        cleanupMultiplayer();
     });
+}
+
+function startRematch() {
+    // Reset rematch flags
+    playerWantsRematch = false;
+    opponentWantsRematch = false;
+    
+    // Hide win screen
+    document.getElementById('winScreen').style.display = 'none';
+    document.getElementById('winButtons').style.display = 'flex';
+    document.getElementById('waitingForOtherPlayer').style.display = 'none';
+    
+    // Remove confetti
+    document.querySelectorAll('.confetti').forEach(c => c.remove());
+    
+    // Reset game state
+    selectedForGame = [];
+    gameRoster = [];
+    currentPicker = 1;
+    currentTurn = 1;
+    selectedCard = null;
+    secret1 = null;
+    secret2 = null;
+    eliminated = {1: new Set(), 2: new Set()};
+    waitingForNextPicker = false;
+    guessMode = false;
+    
+    if (socketPlayerNumber === 1) {
+        // Host goes back to roster to select people
+        document.getElementById('rosterBox').classList.remove('hidden');
+        document.getElementById('pickBox').classList.add('hidden');
+        document.getElementById('gameBox').classList.add('hidden');
+        renderRoster();
+    } else {
+        // Player 2 waits for host to select roster
+        document.getElementById('rosterBox').classList.add('hidden');
+        document.getElementById('pickBox').classList.add('hidden');
+        document.getElementById('gameBox').classList.add('hidden');
+        
+        // Show waiting message
+        const waitingDiv = document.createElement('div');
+        waitingDiv.id = 'waitingForHostRematch';
+        waitingDiv.className = 'pass-screen';
+        waitingDiv.style.display = 'flex';
+        waitingDiv.innerHTML = '<h1>⏳ Waiting for host to select roster...</h1>';
+        document.body.appendChild(waitingDiv);
+    }
 }
 
 function checkIfBothSecretsPicked() {
